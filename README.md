@@ -39,7 +39,7 @@ Released under the MIT License. See [LICENSE](./LICENSE) for details.
    Before writing new helper code, search in utils/. Extend or reuse existing helpers rather than duplicating
    functionality.
 2. Clear, Human-Friendly Logging  
-   Use the shared logger everywhere. Log at INFO or DEBUG to file—avoid ad-hoc print() calls.
+   Use the shared logger everywhere. Logs are INFO to console and DEBUG to file—avoid ad-hoc print() calls.
 3. Entry-Point Only  
    Reference only public “entry” methods (functions or class methods) in docs or AI prompts. Internal helpers (leading _)
    need not be mentioned.
@@ -104,11 +104,13 @@ Released under the MIT License. See [LICENSE](./LICENSE) for details.
 ## AI Instructions
 
 * Do not use print-use extensive logging.
-* Only invoke public helpers from utils/.
+* Only invoke public helpers from `utils/`.
 * Adhere to DRY principles—prefer clarity over micro-optimizations.
 * Include inline docstrings matching this repo’s style.
 * Do not assume any behavior not already covered by our helpers (e.g., path resolution, logging, configuration loading).
-* Always create a Markdown file as project definition. Update it when decision are made so it keeps status 
+* Always create a Markdown file as project definition. Update it when decision is made so it keeps status.
+* Ask question before creating additional files and scripts.
+* If a script becomes large, recommend refactoring it to a Python Package.
 
 
 ## Project Structure
@@ -118,9 +120,10 @@ Tentixo's project structure with explanation of directories and files.
 ```
 example-project/
     ├── config/             # Config files for logger and <org_id>-<env_type>-config and <org_id>-<env_type>-config-secrets.json 
-    │   ├── logging-config.json                       # Tentixo's default logging config
-    │   ├── <org_id>-<env_typoe>-config.json          # Naming convention of config files. Input parameters org_id and env_type
-    │   └── <org_id>-<env_typoe>-config-secrets.json  # As above but for passwords and credentials. Pattern in .gitignore
+    │   ├── logging-config.json                               # Tentixo's default logging config
+    │   ├── <org_id>-<env_typoe>-config.json                  # Naming convention of config files. Input parameters org_id and env_type
+    │   ├── <org_id>-<env_typoe>-config-secrets.json          # As above but for passwords and credentials. Pattern in .gitignore
+    │   └── <org_id>-<env_typoe>-config-secrets_example.json  # An key-only secrets file that can be committed 
     ├── data/               # Input files (especially designed for the project)
     ├── files/              # General file directory (default downloaded files)
     ├── generated_payloads/ # For drafts and intermediate payloads; move to payloads/ after validation.  
