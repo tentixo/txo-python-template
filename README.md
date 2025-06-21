@@ -30,29 +30,44 @@ Released under the MIT License. See [LICENSE](./LICENSE) for details.
   for instructions)
 * Logging to console is INFO and up, and full logs, DEBUG and up, to file in `logs` directory.
 
+## Naming Convention
+* 
+
 ## General Guidelines
 
-1.	Don’t Reinvent the Wheel  
-Before writing new helper code, search in utils/. Extend or reuse existing helpers rather than duplicating
-functionality.
+1. Don’t Reinvent the Wheel  
+   Before writing new helper code, search in utils/. Extend or reuse existing helpers rather than duplicating
+   functionality.
 2. Clear, Human-Friendly Logging  
-Use the shared logger everywhere. Log at INFO or DEBUG to file—avoid ad-hoc print() calls.
+   Use the shared logger everywhere. Log at INFO or DEBUG to file—avoid ad-hoc print() calls.
 3. Entry-Point Only  
-Reference only public “entry” methods (functions or class methods) in docs or AI prompts. Internal helpers (leading _)
-need not be mentioned.
+   Reference only public “entry” methods (functions or class methods) in docs or AI prompts. Internal helpers (leading _)
+   need not be mentioned.
 4. Path & Config Handling  
-Never manipulate paths directly—always use TxoDataHandler and ConfigLoader, which leverage path_helpers under the hood.
+   Never manipulate paths directly—always use TxoDataHandler and ConfigLoader, which leverage path_helpers under the hood.
 5. Error Handling  
-Use custom exceptions from utils/exceptions.py (e.g. ConfigError, APIError) for clearer catch-blocks.
+   Use custom exceptions from utils/exceptions.py (e.g. ConfigError, APIError) for clearer catch-blocks.
 6. Concurrency Patterns  
-Use run_parallel_environments() or run_script() from concurrency.py instead of rolling your own threading/process
-boilerplate.
+   Use run_parallel_environments() or run_script() from concurrency.py instead of rolling your own threading/process
+   boilerplate.
 7. API Calls  
-Always call REST/SOAP via RestAPI/SoapAPI in api_helpers.py—it handles retries, backoff, and error parsing.
+   Always call REST/SOAP via RestAPI/SoapAPI in api_helpers.py—it handles retries, backoff, and error parsing.
 8. Saving & Loading Data  
-Use TxoDataHandler for file I/O (JSON, CSV, Excel, Pickle). It creates directories and writes atomically.
+   Use TxoDataHandler for file I/O (JSON, CSV, Excel, Pickle). It creates directories and writes atomically.
 9. Dependency Management  
-Target Python 3.13; install via pyproject.toml (uv). PyCharm will pick this up automatically.
+   Target Python 3.13; install via pyproject.toml (uv). PyCharm will pick this up automatically.
+10. Use JSON files for configs and other in-data.   
+    Avoid INI, YAML, text and similar.
+11. Use README.md for technical description of the code and how to get the code running.  
+    Use the Wiki for in-depth descriptions.
+
+# Naming Convention
+* Use dash (-) for filenames and keys for JSON files like-this.json.
+* Use underscore (_) for filenames and keys for Python files that_would_be_great.py.
+* Use CamelCase for Markdown file names for VeryNiceFiles.md.
+* Create an `_example.<suffix>` with used keys for files that are in `.gitignore` 
+  * Example `<org_id>-<env_type>-config-secrets_example.json`
+  * Keep the keys without values in the file
 
 
 ## Human Instructions
@@ -93,6 +108,7 @@ Target Python 3.13; install via pyproject.toml (uv). PyCharm will pick this up a
 * Adhere to DRY principles—prefer clarity over micro-optimizations.
 * Include inline docstrings matching this repo’s style.
 * Do not assume any behavior not already covered by our helpers (e.g., path resolution, logging, configuration loading).
+* Always create a Markdown file as project definition. Update it when decision are made so it keeps status 
 
 
 ## Project Structure
