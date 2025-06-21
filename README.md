@@ -1,5 +1,4 @@
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
-![Build Status](https://img.shields.io/github/actions/workflow/status/tentixo/txo-python-template/ci.yml)
 # txo-python-template
 
 **Tentixo's Python template** for directories and helper files (utils/)
