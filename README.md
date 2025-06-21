@@ -108,9 +108,13 @@ Released under the MIT License. See [LICENSE](./LICENSE) for details.
 * Adhere to DRY principles—prefer clarity over micro-optimizations.
 * Include inline docstrings matching this repo’s style.
 * Do not assume any behavior not already covered by our helpers (e.g., path resolution, logging, configuration loading).
-* Always create a Markdown file as project definition. Update it when decision is made so it keeps status.
+* Always create a Markdown file **first** in each step before coding, as project definition. 
 * Ask question before creating additional files and scripts.
 * If a script becomes large, recommend refactoring it to a Python Package.
+* Use type hints.
+* Have argparse in main() with named args: org_id, env_typ and help description.
+* Remember to update the JSON Schema `org-env-config-schema.json` when updating the main config file.
+* Use hard fails `something['key']` instead of `something.get('key')`.
 
 
 ## Project Structure
