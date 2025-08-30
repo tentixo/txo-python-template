@@ -209,3 +209,282 @@ Use JSON exclusively for configuration.
 - Positive: Single parser, schema validation
 - Negative: No comments in JSON
 - Mitigation: Use descriptive keys
+
+---
+
+## ADR-011: Automatic Token Redaction in Logs
+
+**Status:** MANDATORY  
+**Date:** 2025-01-15  
+
+### Context
+Sensitive tokens, API keys, and secrets accidentally logged create serious security risks. Even experienced developers can accidentally log sensitive data during debugging.
+
+### Decision
+Implement automatic TokenRedactionFilter that redacts sensitive patterns before logging.
+
+### Implementation
+The filter automatically redacts:
+- Bearer tokens
+- JWT tokens (eyJ...)
+- API keys (40+ character strings)
+- Password fields in JSON
+- Client secrets
+- OAuth tokens
+
+### Consequences
+- Positive: Prevents accidental token exposure in logs
+- Positive: Works transparently without code changes
+- Negative: Slight performance overhead for regex matching
+- Mitigation: Optimized regex patterns, compiled once
+
+### Example
+```python
+logger.info(f"Using token: {token}")
+# Actually logs: "Using token: Bearer [REDACTED]"
+
+logger.debug(f"Response: {json.dumps({'password': 'secret123'})}")
+# Actually logs: "Response: {"password": "[REDACTED]"}"
+```
+
+---
+
+## ADR-012: Rate Limiting and Circuit Breaker Patterns
+
+**Status:** RECOMMENDED  
+**Date:** 2025-01-15  
+
+### Context
+External APIs have rate limits that cause 429 errors. Failures can cascade when services are down, overwhelming systems with retries.
+
+### Decision
+Provide optional RateLimiter and CircuitBreaker classes configurable via script-behavior.
+
+### Implementation
+```json
+{
+  "script-behavior": {
+    "enable-rate-limiting": true,
+    "rate-limit-per-second": 10,
+    "enable-circuit-breaker": true,
+    "circuit-breaker-threshold": 5,
+    "circuit-breaker-timeout": 60
+  }
+}
+```
+
+### Consequences
+- Positive: Prevents API bans from rate limit violations
+- Positive: Stops cascade failures quickly
+- Positive: Configurable per environment
+- Negative: Adds complexity to API calls
+- Mitigation: Disabled by default, opt-in only
+
+---
+
+## ADR-013: Async Operation Support (202 Accepted)
+
+**Status:** AUTOMATIC  
+**Date:** 2025-01-15  
+
+### Context
+Modern REST APIs return 202 Accepted for long-running operations, requiring polling for completion.
+
+### Decision
+Automatically handle 202 responses by polling the Location header until operation completes.
+
+### Implementation
+- Check for 202 status code
+- Extract Location header
+- Poll with exponential backoff
+- Respect Retry-After header
+- Configurable max wait time (default 5 minutes)
+
+### Consequences
+- Positive: Transparent handling of async operations
+- Positive: No special code needed for 202 responses
+- Negative: May wait up to 5 minutes
+- Mitigation: Configurable timeouts and intervals
+
+### Example
+```python
+# This automatically handles 202 and polls for completion
+result = api.post("/long-operation", data)
+# May take several minutes but returns final result
+```
+
+---
+
+## ADR-014: Session Pool Management
+
+**Status:** AUTOMATIC  
+**Date:** 2025-01-15  
+
+### Context
+Creating unlimited HTTP sessions causes memory leaks and connection exhaustion.
+
+### Decision
+Implement SessionManager with LRU cache limiting to 50 concurrent sessions.
+
+### Implementation
+- Thread-safe session cache
+- LRU eviction when limit reached
+- Automatic cleanup on eviction
+- Per-thread session storage for performance
+
+### Consequences
+- Positive: Prevents memory leaks
+- Positive: Limits connection pool size
+- Positive: Thread-safe operation
+- Negative: May evict active sessions under heavy load
+- Mitigation: Reasonable default of 50 sessions
+
+---
+
+## ADR-015: HelpfulError Pattern
+
+**Status:** MANDATORY  
+**Date:** 2025-01-15  
+
+### Context
+Stack traces and technical error messages confuse non-technical users and don't provide actionable guidance.
+
+### Decision
+Use HelpfulError exception for all user-facing errors with three components:
+1. What went wrong (problem description)
+2. How to fix it (solution)
+3. Example (optional but recommended)
+
+### Implementation
+```python
+raise HelpfulError(
+    what_went_wrong="Configuration file not found",
+    how_to_fix="Create the file in config/ directory",
+    example="Copy config/example.json and modify"
+)
+```
+
+### Consequences
+- Positive: Clear, actionable error messages
+- Positive: Consistent error format
+- Positive: Reduces support requests
+- Negative: Requires thoughtful error handling
+- Mitigation: Provide examples in codebase
+
+### Output Format
+```
+❌ Problem: Configuration file not found
+
+✅ Solution: Create the file in config/ directory
+
+📝 Example:
+Copy config/example.json and modify
+```
+
+---
+
+## ADR-016: Memory Optimization with __slots__
+
+**Status:** RECOMMENDED  
+**Date:** 2025-01-15  
+
+### Context
+Dataclasses without __slots__ use dictionaries for attribute storage, consuming significant memory with many instances.
+
+### Decision
+Add __slots__ to frequently instantiated dataclasses like ErrorContext, RestOperationResult, and ProcessingResults.
+
+### Implementation
+```python
+@dataclass
+class ErrorContext:
+    __slots__ = ['operation', 'resource', 'details']
+    operation: Optional[str] = None
+    resource: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+```
+
+### Consequences
+- Positive: ~40% memory reduction per instance
+- Positive: Slightly faster attribute access
+- Negative: Can't add attributes dynamically
+- Negative: Inheritance becomes more complex
+- Mitigation: Only use for high-volume dataclasses
+
+---
+
+## ADR-017: Python 3.13+ Feature Adoption
+
+**Status:** OPTIONAL  
+**Date:** 2025-01-15  
+
+### Context
+Python 3.13 introduces new features that can improve code quality and performance, but not all environments support it.
+
+### Decision
+Adopt Python 3.13+ features where beneficial, but maintain backwards compatibility to Python 3.10.
+
+### Features to Adopt (When Available)
+- PEP 695 type parameters (3.12+)
+- Pattern matching with match/case (3.10+)
+- Exception groups and notes (3.11+)
+- Better error messages (3.11+)
+
+### Consequences
+- Positive: Cleaner, more modern code
+- Positive: Better performance
+- Negative: Requires version checking
+- Mitigation: Feature detection and fallbacks
+
+---
+
+## ADR-018: Context Manager Pattern for Resources
+
+**Status:** RECOMMENDED  
+**Date:** 2025-01-15  
+
+### Context
+API clients and resources need proper cleanup to prevent connection leaks.
+
+### Decision
+Implement context manager support for all resource-holding classes.
+
+### Implementation
+```python
+with ApiManager(config) as manager:
+    api = manager.get_rest_api()
+    # Automatically cleaned up on exit
+```
+
+### Consequences
+- Positive: Guaranteed resource cleanup
+- Positive: Cleaner code structure
+- Positive: Exception-safe
+- Negative: Extra indentation level
+- Mitigation: Also support manual cleanup
+
+---
+
+## Template for New ADRs
+
+## ADR-XXX: Title
+
+**Status:** MANDATORY | RECOMMENDED | OPTIONAL | DEPRECATED  
+**Date:** YYYY-MM-DD  
+
+### Context
+Why is this decision needed?
+
+### Decision
+What is the decision?
+
+### Implementation
+How is it implemented? (if applicable)
+
+### Consequences
+- Positive: Benefits
+- Negative: Drawbacks
+- Mitigation: How to address drawbacks
+
+### Example
+Code or usage example
