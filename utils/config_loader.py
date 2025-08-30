@@ -120,9 +120,7 @@ class ConfigLoader:
             ValidationError: If validation fails and validate is True
         """
         with self._lock:
-            # Return cached config if available and not forcing reload
             if self._config is not None and not force_reload:
-                logger.debug(f"Returning cached config for {self.org_id}-{self.env_type}")
                 return self._config
 
             try:
@@ -135,11 +133,22 @@ class ConfigLoader:
                 return self._config
 
             except FileNotFoundError:
-                logger.error(f"Config file not found: {self.config_filename}")
-                raise
-            except Exception as e:
-                logger.error(f"Unexpected error loading config: {e}")
-                raise
+                from utils.exceptions import HelpfulError
+                raise HelpfulError(
+                    what_went_wrong=f"Configuration file '{self.config_filename}' not found in config/ directory",
+                    how_to_fix=f"Create the file 'config/{self.config_filename}' with your configuration",
+                    example="""Example minimal config:
+        {
+          "global": {
+            "api-base-url": "https://api.example.com",
+            "api-version": "v2",
+            "timeout-seconds": 30
+          },
+          "script-behavior": {
+            "api-delay-seconds": 1
+          }
+        }"""
+                )
 
     def load_vat_config(self, validate: bool = True, force_reload: bool = False) -> Dict[str, Any]:
         """

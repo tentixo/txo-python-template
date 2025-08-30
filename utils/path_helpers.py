@@ -14,12 +14,8 @@ import shutil
 from pathlib import Path
 from functools import lru_cache
 from dataclasses import dataclass
-from typing import Optional, Set, List, Tuple, Union, Dict  # Added Dict import
+from typing import Optional, Set, List, Tuple, Union, Dict
 from datetime import datetime, timedelta
-
-from utils.logger import setup_logger
-
-logger = setup_logger()
 
 
 @dataclass(frozen=True)
@@ -71,10 +67,8 @@ class ProjectPaths:
             env_root = os.getenv("PROJECT_ROOT")
             if env_root:
                 root_path = Path(env_root)
-                logger.debug(f"Using PROJECT_ROOT from environment: {root_path}")
             else:
                 root_path = Path(__file__).resolve().parent.parent
-                logger.debug(f"Using derived project root: {root_path}")
 
         # Validate root_path
         if not root_path.is_dir():
@@ -94,12 +88,15 @@ class ProjectPaths:
             wsdl=root_path / "wsdl"
         )
 
-    def ensure_dirs(self, skip_dirs: Optional[Set[str]] = None) -> None:
+    def ensure_dirs(self, skip_dirs: Optional[Set[str]] = None) -> List[str]:
         """
         Create all project directories if they don't exist.
 
         Args:
             skip_dirs: Set of directory names to skip creating
+
+        Returns:
+            List of directory names that were created
 
         Raises:
             OSError: If directory creation fails due to permissions
@@ -117,11 +114,9 @@ class ProjectPaths:
                     path.mkdir(parents=True, exist_ok=True)
                     created_dirs.append(attr_name)
                 except OSError as e:
-                    logger.error(f"Failed to create directory {path}: {e}")
-                    raise
+                    raise OSError(f"Failed to create directory {path}: {e}")
 
-        if created_dirs:
-            logger.info(f"Created directories: {', '.join(created_dirs)}")
+        return created_dirs
 
     def validate_structure(self) -> Tuple[List[str], List[str]]:
         """
@@ -180,8 +175,8 @@ def get_path(category: str, filename: str, ensure_parent: bool = True) -> Path:
         OSError: If directory creation fails when ensure_parent is True
 
     Example:
-        >>> config_path = get_path('config', 'app-config.json')
-        >>> log_path = get_path('logs', 'app.log')
+         config_path = get_path('config', 'app-config.json')
+         log_path = get_path('logs', 'app.log')
     """
     paths = ProjectPaths.init()
 
@@ -222,8 +217,8 @@ def set_project_root(path: Union[str, Path]) -> None:
         ValueError: If the path doesn't exist or isn't a directory
 
     Example:
-        >>> set_project_root('/path/to/project')
-        >>> config_file = get_path('config', 'settings.json')
+         set_project_root('/path/to/project')
+         config_file = get_path('config', 'settings.json')
     """
     root_path = Path(path) if isinstance(path, str) else path
 
@@ -235,7 +230,6 @@ def set_project_root(path: Union[str, Path]) -> None:
 
     # Initialize with the new path
     ProjectPaths.init(root_path)
-    logger.info(f"Project root set to: {root_path}")
 
 
 def get_project_root() -> Path:
@@ -263,8 +257,8 @@ def cleanup_old_files(category: str, days: int = 30,
         List of deleted (or would-be deleted) file paths
 
     Example:
-        >>> # Delete logs older than 7 days
-        >>> deleted = cleanup_old_files('logs', days=7, pattern="*.log")
+         # Delete logs older than 7 days
+         deleted = cleanup_old_files('logs', days=7, pattern="*.log")
     """
     paths = ProjectPaths.init()
 
@@ -273,7 +267,6 @@ def cleanup_old_files(category: str, days: int = 30,
 
     directory = getattr(paths, category)
     if not directory.exists():
-        logger.warning(f"Directory doesn't exist: {directory}")
         return []
 
     cutoff_time = datetime.now() - timedelta(days=days)
@@ -287,12 +280,9 @@ def cleanup_old_files(category: str, days: int = 30,
                 if not dry_run:
                     try:
                         file_path.unlink()
-                        logger.debug(f"Deleted old file: {file_path}")
-                    except OSError as e:
-                        logger.error(f"Failed to delete {file_path}: {e}")
-
-    action = "Would delete" if dry_run else "Deleted"
-    logger.info(f"{action} {len(deleted_files)} files older than {days} days from {category}")
+                    except OSError:
+                        # Continue processing other files
+                        pass
 
     return deleted_files
 
@@ -325,12 +315,9 @@ def cleanup_tmp(max_age_hours: int = 24) -> int:
                 elif item.is_dir():
                     shutil.rmtree(item)
                 deleted_count += 1
-                logger.debug(f"Cleaned up tmp item: {item}")
-        except OSError as e:
-            logger.error(f"Failed to clean up {item}: {e}")
-
-    if deleted_count > 0:
-        logger.info(f"Cleaned up {deleted_count} items from tmp directory")
+        except OSError:
+            # Continue with other items
+            pass
 
     return deleted_count
 
@@ -347,8 +334,8 @@ def get_dir_size(category: str, human_readable: bool = True) -> Union[str, int]:
         Directory size as formatted string or integer bytes
 
     Example:
-        >>> size = get_dir_size('output', human_readable=True)
-        >>> print(f"Output directory size: {size}")
+         size = get_dir_size('output', human_readable=True)
+         print(f"Output directory size: {size}")
     """
     paths = ProjectPaths.init()
 
@@ -387,7 +374,7 @@ def list_files(category: str, pattern: str = "*",
         List of file paths matching the pattern
 
     Example:
-        >>> json_files = list_files('config', pattern="*.json")
+         json_files = list_files('config', pattern="*.json")
     """
     paths = ProjectPaths.init()
 
@@ -417,7 +404,7 @@ def ensure_file_backup(category: str, filename: str, max_backups: int = 5) -> Op
         Path to backup file if created, None if file doesn't exist
 
     Example:
-       # >>> backup_path = ensure_file_backup('config', 'settings.json')
+         backup_path = ensure_file_backup('config', 'settings.json')
     """
     original_path = get_path(category, filename, ensure_parent=False)
 
@@ -432,7 +419,6 @@ def ensure_file_backup(category: str, filename: str, max_backups: int = 5) -> Op
     # Copy file to backup
     try:
         shutil.copy2(original_path, backup_path)
-        logger.info(f"Created backup: {backup_path}")
 
         # Clean up old backups
         backup_pattern = f"{original_path.stem}_backup_*{original_path.suffix}"
@@ -441,10 +427,8 @@ def ensure_file_backup(category: str, filename: str, max_backups: int = 5) -> Op
         if len(backups) > max_backups:
             for old_backup in backups[:-max_backups]:
                 old_backup.unlink()
-                logger.debug(f"Deleted old backup: {old_backup}")
 
         return backup_path
 
     except OSError as e:
-        logger.error(f"Failed to create backup of {original_path}: {e}")
-        raise
+        raise OSError(f"Failed to create backup of {original_path}: {e}")
