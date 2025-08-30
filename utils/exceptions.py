@@ -1,4 +1,10 @@
-# utils/exceptions.py - Fixed built-in name shadowing
+# utils/exceptions.py
+"""
+Custom exception hierarchy for TXO Python Template.
+
+Provides specific exception types for different error scenarios,
+making error handling more precise and meaningful.
+"""
 
 from typing import Optional, Any, Dict
 from dataclasses import dataclass
@@ -6,323 +12,308 @@ from dataclasses import dataclass
 
 @dataclass
 class ErrorContext:
-    """Structured error context for better debugging"""
+    """
+    Structured error context for debugging.
+
+    Attributes:
+        operation: What operation was being performed
+        resource: What resource was being accessed
+        details: Additional error details
+    """
+    # NOTE: Removed __slots__ because it conflicts with default values
+    # If memory optimization is critical, use __init__ instead of dataclass defaults
+
     operation: Optional[str] = None
-    service_name: Optional[str] = None
-    company_id: Optional[str] = None
-    environment: Optional[str] = None
-    url: Optional[str] = None
-    payload_summary: Optional[str] = None  # Sanitized payload info
-    request_id: Optional[str] = None
-    timestamp: Optional[str] = None
+    resource: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for logging"""
-        return {k: v for k, v in self.__dict__.items() if v is not None}
+        """Convert to dictionary for logging."""
+        return {
+            k: v for k, v in {
+                'operation': self.operation,
+                'resource': self.resource,
+                'details': self.details
+            }.items() if v is not None
+        }
 
 
-@dataclass
-class SOAPFaultInfo:
-    """Structured SOAP fault information"""
-    fault_code: Optional[str] = None
-    fault_string: Optional[str] = None
-    detail: Optional[str] = None
-    fault_actor: Optional[str] = None
+class TxoBaseError(Exception):
+    """
+    Base exception for all TXO template errors.
 
-    def to_message(self) -> str:
-        """Convert to human-readable error message"""
-        parts = []
-        if self.fault_string:
-            parts.append(self.fault_string)
-        if self.fault_code:
-            parts.append(f"(Code: {self.fault_code})")
-        if self.detail and self.detail != self.fault_string:
-            parts.append(f"Detail: {self.detail}")
-        return " | ".join(parts) if parts else "Unknown SOAP fault"
+    Provides common functionality for all custom exceptions.
+    """
 
-    @property
-    def is_valid(self) -> bool:
-        """Check if fault info contains meaningful data"""
-        return bool(self.fault_string or self.fault_code)
-
-
-class AzureBaseError(Exception):
-    """Enhanced base exception for Azure operations"""
-
-    def __init__(self, message: str,
-                 correlation_id: Optional[str] = None,
-                 context: Optional[ErrorContext] = None):
+    def __init__(self, message: str, context: Optional[ErrorContext] = None):
         """
-        Initialize the base exception.
+        Initialize base exception.
 
         Args:
-            message: The error message
-            correlation_id: Optional correlation ID for tracking the request
-            context: Optional structured context information
+            message: Error message
+            context: Optional error context for debugging
         """
-        self.correlation_id = correlation_id
-        # Fix PyCharm warning by ensuring type is always ErrorContext
-        self.context: ErrorContext = context or ErrorContext()
+        self.context = context or ErrorContext()
         super().__init__(message)
 
     def __str__(self) -> str:
-        """Format the exception message with context"""
-        base_message = super().__str__()
-
-        parts = [f"{self.__class__.__name__}: {base_message}"]
-
-        if self.correlation_id:
-            parts.append(f"Correlation ID: {self.correlation_id}")
-
+        """Format exception with context."""
+        base_msg = super().__str__()
         if self.context.operation:
-            parts.append(f"Operation: {self.context.operation}")
-
-        return " | ".join(parts)
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    def get_logging_context(self) -> Dict[str, Any]:
-        """Get structured context for logging"""
-        context = {"exception_type": self.__class__.__name__}
-        if self.correlation_id:
-            context["correlation_id"] = self.correlation_id
-        # Now PyCharm knows self.context is definitely ErrorContext
-        context.update(self.context.to_dict())
-        return context
+            return f"{base_msg} (during {self.context.operation})"
+        return base_msg
 
 
-class APIError(AzureBaseError):
-    """Base API error - parent for REST and SOAP errors"""
+# API-related exceptions
+
+class ApiError(TxoBaseError):
+    """
+    Base exception for API-related errors.
+
+    Attributes:
+        status_code: HTTP status code if applicable
+        response: Raw response object if available
+    """
 
     def __init__(self, message: str,
                  status_code: Optional[int] = None,
                  response: Optional[Any] = None,
-                 correlation_id: Optional[str] = None,
                  context: Optional[ErrorContext] = None):
         """
         Initialize API error.
 
         Args:
-            message: The error message
+            message: Error message
             status_code: HTTP status code
             response: Raw response object
-            correlation_id: Optional correlation ID
-            context: Optional structured context
+            context: Error context
         """
+        super().__init__(message, context)
         self.status_code = status_code
         self.response = response
 
-        # Build enhanced message with status
-        enhanced_message = message
-        if status_code:
-            enhanced_message += f" (Status: {status_code})"
 
-        super().__init__(enhanced_message, correlation_id, context)
+class ApiOperationError(ApiError):
+    """Raised when an API operation fails."""
+    pass
 
 
-class SOAPError(APIError):
-    """SOAP-specific errors with fault information"""
+class ApiTimeoutError(ApiError):
+    """Raised when an API request times out."""
 
-    def __init__(self, message: str,
-                 fault_info: Optional[SOAPFaultInfo] = None,
-                 status_code: Optional[int] = None,
-                 response: Optional[Any] = None,
-                 correlation_id: Optional[str] = None,
-                 context: Optional[ErrorContext] = None):
+    def __init__(self, message: str = "API request timed out",
+                 timeout_seconds: Optional[int] = None, **kwargs):
         """
-        Initialize SOAP error with fault details.
-
-        Args:
-            message: Base error message
-            fault_info: Structured SOAP fault information
-            status_code: HTTP status code
-            response: Raw response object
-            correlation_id: Optional correlation ID
-            context: Optional structured context
-        """
-        self.fault_info = fault_info
-
-        # Build enhanced message with fault details
-        enhanced_message = message
-        if fault_info and fault_info.is_valid:
-            enhanced_message += f": {fault_info.to_message()}"
-
-        super().__init__(enhanced_message, status_code, response, correlation_id, context)
-
-    @property
-    def fault_code(self) -> Optional[str]:
-        """Get fault code if available"""
-        return self.fault_info.fault_code if self.fault_info else None
-
-    @property
-    def fault_string(self) -> Optional[str]:
-        """Get fault string if available"""
-        return self.fault_info.fault_string if self.fault_info else None
-
-
-class BusinessCentralError(SOAPError):
-    """Business Central specific business logic errors"""
-
-    def __init__(self, message: str,
-                 error_category: Optional[str] = None,
-                 is_retryable: bool = False,
-                 is_ignorable: bool = False,
-                 fault_info: Optional[SOAPFaultInfo] = None,
-                 status_code: Optional[int] = None,
-                 response: Optional[Any] = None,
-                 correlation_id: Optional[str] = None,
-                 context: Optional[ErrorContext] = None):
-        """
-        Initialize Business Central error.
+        Initialize timeout error.
 
         Args:
             message: Error message
-            error_category: Classification of error type
-            is_retryable: Whether this error might succeed on retry
-            is_ignorable: Whether this error can be safely ignored
-            fault_info: SOAP fault details
-            status_code: HTTP status code
-            response: Raw response
-            correlation_id: Correlation ID
-            context: Error context
+            timeout_seconds: Timeout duration that was exceeded
         """
-        self.error_category = error_category
-        self.is_retryable = is_retryable
-        self.is_ignorable = is_ignorable
-
-        super().__init__(message, fault_info, status_code, response, correlation_id, context)
+        if timeout_seconds:
+            message = f"{message} after {timeout_seconds} seconds"
+        super().__init__(message, status_code=408, **kwargs)
 
 
-class DuplicateEntityError(BusinessCentralError):
-    """Entity already exists - usually ignorable"""
+class ApiRateLimitError(ApiError):
+    """
+    Raised when API rate limit is exceeded.
 
-    def __init__(self, entity_type: str, entity_id: str, **kwargs):
-        self.entity_type = entity_type
-        self.entity_id = entity_id
+    Attributes:
+        retry_after: Seconds to wait before retrying (if provided by API)
+    """
 
-        message = f"{entity_type} '{entity_id}' already exists"
-        super().__init__(
-            message,
-            error_category="duplicate_entity",
-            is_retryable=False,
-            is_ignorable=True,
-            **kwargs
-        )
-
-
-class BCValidationError(BusinessCentralError):
-    """Business Central business rule validation failed"""
-
-    def __init__(self, validation_rule: str, **kwargs):
-        self.validation_rule = validation_rule
-
-        super().__init__(
-            f"Validation failed: {validation_rule}",
-            error_category="validation_error",
-            is_retryable=False,
-            is_ignorable=False,
-            **kwargs
-        )
-
-
-class ConcurrencyError(BusinessCentralError):
-    """Record modified by another user - retryable"""
-
-    def __init__(self, **kwargs):
-        super().__init__(
-            "Record was modified by another user",
-            error_category="concurrency_error",
-            is_retryable=True,
-            is_ignorable=False,
-            **kwargs
-        )
-
-
-class BCPermissionError(BusinessCentralError):
-    """Business Central insufficient permissions - not retryable"""
-
-    def __init__(self, required_permission: str = None, **kwargs):
-        self.required_permission = required_permission
-
-        message = "Access denied"
-        if required_permission:
-            message += f": requires {required_permission}"
-
-        super().__init__(
-            message,
-            error_category="permission_error",
-            is_retryable=False,
-            is_ignorable=False,
-            **kwargs
-        )
-
-
-class EntityNotFoundError(BusinessCentralError):
-    """Referenced entity not found"""
-
-    def __init__(self, entity_type: str, entity_id: str, **kwargs):
-        self.entity_type = entity_type
-        self.entity_id = entity_id
-
-        super().__init__(
-            f"{entity_type} '{entity_id}' not found",
-            error_category="not_found",
-            is_retryable=False,
-            is_ignorable=False,
-            **kwargs
-        )
-
-
-class AuthenticationError(AzureBaseError):
-    """Authentication and authorization failures"""
-
-    def __init__(self, message: str,
-                 status_code: Optional[int] = None,
-                 correlation_id: Optional[str] = None,
-                 context: Optional[ErrorContext] = None):
+    def __init__(self, message: str = "Rate limit exceeded",
+                 retry_after: Optional[int] = None, **kwargs):
         """
-        Initialize authentication error.
+        Initialize rate limit error.
 
         Args:
-            message: The error message
-            status_code: HTTP status code (typically 401 or 403)
-            correlation_id: Optional correlation ID
-            context: Optional error context
+            message: Error message
+            retry_after: Seconds to wait before retry
         """
-        self.status_code = status_code
-        status_detail = f" (Status: {status_code})" if status_code else ""
-        super().__init__(f"{message}{status_detail}", correlation_id, context)
+        super().__init__(message, status_code=429, **kwargs)
+        self.retry_after = retry_after
+        if retry_after:
+            self.message = f"{message}. Retry after {retry_after} seconds"
 
 
-class ConfigError(AzureBaseError):
-    """Configuration loading/validation failures"""
+class ApiAuthenticationError(ApiError):
+    """Raised when authentication fails."""
 
-    def __init__(self, message: str,
-                 config_path: Optional[str] = None,
-                 correlation_id: Optional[str] = None,
-                 context: Optional[ErrorContext] = None):
+    def __init__(self, message: str = "Authentication failed", **kwargs):
+        """Initialize authentication error."""
+        super().__init__(message, status_code=401, **kwargs)
+
+
+class ApiNotFoundError(ApiError):
+    """Raised when requested resource is not found."""
+
+    def __init__(self, resource: str = "Resource", message: Optional[str] = None, **kwargs):
+        """
+        Initialize not found error.
+
+        Args:
+            resource: Type/name of resource not found
+            message: Optional custom message
+        """
+        if message is None:
+            message = f"{resource} not found"
+        super().__init__(message, status_code=404, **kwargs)
+
+
+class ApiValidationError(ApiError):
+    """
+    Raised when API validation fails.
+
+    Used for 400/422 responses indicating client-side validation errors.
+    """
+
+    def __init__(self, message: str = "Validation failed",
+                 field: Optional[str] = None,
+                 value: Optional[Any] = None, **kwargs):
+        """
+        Initialize validation error.
+
+        Args:
+            message: Error message
+            field: Field that failed validation
+            value: Invalid value
+        """
+        if field:
+            message = f"{message} for field '{field}'"
+            if value is not None:
+                message = f"{message}: {value}"
+        super().__init__(message, status_code=400, **kwargs)
+        self.field = field
+        self.value = value
+
+
+class EntityNotFoundError(ApiNotFoundError):
+    """
+    Raised when a specific entity is not found.
+
+    Specialized version of ApiNotFoundError for entity operations.
+    """
+
+    def __init__(self, entity_type: str = "Entity",
+                 entity_id: Optional[str] = None, **kwargs):
+        """
+        Initialize entity not found error.
+
+        Args:
+            entity_type: Type of entity
+            entity_id: ID of the missing entity
+        """
+        if entity_id:
+            resource = f"{entity_type} with ID '{entity_id}'"
+        else:
+            resource = entity_type
+        super().__init__(resource=resource, **kwargs)
+        self.entity_type = entity_type
+        self.entity_id = entity_id
+
+
+# Configuration and validation exceptions
+
+class ConfigurationError(TxoBaseError):
+    """
+    Raised when configuration is invalid or missing.
+
+    Attributes:
+        config_key: Specific configuration key that caused the error
+    """
+
+    def __init__(self, message: str, config_key: Optional[str] = None, **kwargs):
         """
         Initialize configuration error.
 
         Args:
-            message: The error message
-            config_path: Path to the configuration file or section
-            correlation_id: Optional correlation ID
-            context: Optional error context
+            message: Error message
+            config_key: Configuration key that caused error
         """
-        self.config_path = config_path
-        path_detail = f" (Config: {config_path})" if config_path else ""
-        super().__init__(f"{message}{path_detail}", correlation_id, context)
+        super().__init__(message, **kwargs)
+        self.config_key = config_key
+        if config_key:
+            self.message = f"{message} (key: {config_key})"
 
 
-class APITimeoutError(APIError):
-    """API request timeout errors"""
+class ValidationError(TxoBaseError):
+    """
+    Raised when data validation fails.
 
-    def __init__(self, timeout_seconds: int, **kwargs):
-        self.timeout_seconds = timeout_seconds
-        super().__init__(
-            f"Request timed out after {timeout_seconds} seconds",
-            status_code=408,
-            **kwargs
-        )
+    Attributes:
+        field: Field that failed validation
+        value: Value that was invalid
+    """
+
+    def __init__(self, message: str,
+                 field: Optional[str] = None,
+                 value: Optional[Any] = None, **kwargs):
+        """
+        Initialize validation error.
+
+        Args:
+            message: Error message
+            field: Field that failed validation
+            value: Invalid value
+        """
+        super().__init__(message, **kwargs)
+        self.field = field
+        self.value = value
+
+
+# File operation exceptions
+
+class FileOperationError(TxoBaseError):
+    """
+    Raised when file operations fail.
+
+    Attributes:
+        file_path: Path to the file that caused the error
+        operation: Type of operation (read, write, delete)
+    """
+
+    def __init__(self, message: str,
+                 file_path: Optional[str] = None,
+                 operation: Optional[str] = None, **kwargs):
+        """
+        Initialize file operation error.
+
+        Args:
+            message: Error message
+            file_path: Path to problematic file
+            operation: Operation that failed
+        """
+        super().__init__(message, **kwargs)
+        self.file_path = file_path
+        self.operation = operation
+
+
+# Helpful error with instructions
+
+class HelpfulError(TxoBaseError):
+    """
+    Exception that provides helpful instructions to fix the problem.
+
+    Used for user-friendly error messages with solutions.
+    """
+
+    def __init__(self, what_went_wrong: str,
+                 how_to_fix: str,
+                 example: Optional[str] = None):
+        """
+        Initialize helpful error.
+
+        Args:
+            what_went_wrong: Description of the problem
+            how_to_fix: Instructions to fix it
+            example: Optional example of correct usage
+        """
+        message = f"\n❌ Problem: {what_went_wrong}\n\n✅ Solution: {how_to_fix}"
+        if example:
+            message += f"\n\n📝 Example:\n{example}"
+        super().__init__(message)
+        self.what_went_wrong = what_went_wrong
+        self.how_to_fix = how_to_fix
+        self.example = example

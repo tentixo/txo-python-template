@@ -1,322 +1,346 @@
-![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 # txo-python-template
 
-**Tentixo's Python template** for directories and helper files (utils/)
+![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
+![MIT License](https://img.shields.io/badge/license-MIT-green)
+![PyCharm](https://img.shields.io/badge/IDE-PyCharm-green)
 
-## License
-Released under the MIT License. See [LICENSE](./LICENSE) for details.
+**Tentixo's Python Template** - Production-ready framework for REST/OData API automation and data processing scripts with built-in best practices and error handling.
 
-## Table of Contents
-1. [Description](#description)
-2. [Getting Started](#getting-started)
-3. [Dependencies](#dependencies)
-4. [Configuration](#configuration)
-5. [Initialization](#initialization)
-6. [Utilities Overview](#utilities-overview)
-7. [General Guidelines](#general-guidelines)
-8. [Human Instructions](#human-instructions)
-9. [AI Instructions](#ai-instructions)
+> **Note**: This template is for REST/OData APIs only. Contact Morre if you need SOAP support.
 
-## Description
+## Quick Start
 
-* This project structure uses two input parameters:
-    * `org_id`: A chosen ORG ID to separate config files needed for multi-organizational code.
-    * `env_type`: To separate environments: dev, test, stage, prod, according to your needs.
-* You can add a project-specific name for your log naming in `utils/loggger.py` about row 97.
-* Active Git-LFS. Add your binary files to `.gitattributes` if not already there.
-* Always keep your secrets in a file that ends with `-secrets.json` in `config/` so they are not committed.
-* Use `uv` as your package handler.
-* Make sure you have set up your developer environment including `.zsch` and `.zprofile`files (se repo `txo-brain-pain`
-  for instructions)
-* Logging to console is INFO and up, and full logs, DEBUG and up, to file in `logs` directory.
+### Step 1: Create Your Repository
 
-## Naming Convention
-* 
+**On GitHub:**
+1. Click the green **"Use this template"** button above
+2. Select **"Create a new repository"**
+3. Name your repository (e.g., `my-api-integration`)
+4. Clone your new repository locally
 
-## General Guidelines
+**Or clone directly:**
+```bash
+git clone https://github.com/tentixo/txo-python-template.git
+cd txo-python-template
+```
 
-1. Don’t Reinvent the Wheel  
-   Before writing new helper code, search in utils/. Extend or reuse existing helpers rather than duplicating
-   functionality.
-2. Clear, Human-Friendly Logging  
-   Use the shared logger everywhere. Logs are INFO to console and DEBUG to file—avoid ad-hoc print() calls.
-3. Entry-Point Only  
-   Reference only public “entry” methods (functions or class methods) in docs or AI prompts. Internal helpers (leading _)
-   need not be mentioned.
-4. Path & Config Handling  
-   Never manipulate paths directly—always use TxoDataHandler and ConfigLoader, which leverage path_helpers under the hood.
-5. Error Handling  
-   Use custom exceptions from utils/exceptions.py (e.g. ConfigError, APIError) for clearer catch-blocks.
-6. Concurrency Patterns  
-   Use run_parallel_environments() or run_script() from concurrency.py instead of rolling your own threading/process
-   boilerplate.
-7. API Calls  
-   Always call REST/SOAP via RestAPI/SoapAPI in api_helpers.py—it handles retries, backoff, and error parsing.
-8. Saving & Loading Data  
-   Use TxoDataHandler for file I/O (JSON, CSV, Excel, Pickle). It creates directories and writes atomically.
-9. Dependency Management  
-   Target Python 3.13; install via pyproject.toml (uv). PyCharm will pick this up automatically.
-10. Use JSON files for configs and other in-data.   
-    Avoid INI, YAML, text and similar.
-11. Use README.md for technical description of the code and how to get the code running.  
-    Use the Wiki for in-depth descriptions.
+### Step 2: Setup Development Environment
 
-# Naming Convention
-* Use dash (-) for filenames and keys for JSON files like-this.json.
-* Use underscore (_) for filenames and keys for Python files that_would_be_great.py.
-* Use CamelCase for Markdown file names for VeryNiceFiles.md.
-* Create an `_example.<suffix>` with used keys for files that are in `.gitignore` 
-  * Example `<org_id>-<env_type>-config-secrets_example.json`
-  * Keep the keys without values in the file
+This template is optimized for **PyCharm** - we recommend using it for the best experience.
 
+**PyCharm Setup (Recommended):**
+1. Open the project in PyCharm
+2. PyCharm will automatically detect `pyproject.toml`
+3. When prompted, let PyCharm create a virtual environment and install dependencies
+4. If not prompted: Go to Settings → Project → Python Interpreter → Add Interpreter
 
-## Human Instructions
+**Manual Setup with uv:**
+```bash
+# Install uv if you haven't already
+pip install uv
 
-* Always add the path and name of any Python file as a comment on the first line: `# utils/load_n_save.py`
-* Keep active scripts in `src/` directory
-* Always use helper files from `utils/` for
-    * Loading config
-    * Saving files
-    * Handle logging
-    * Do API calls. The code handles exceptions → No need to have this in the active scripts
-    * Handle concurrent API calls
-* If you generated payloads, save them in `generated_payloads/` and send them from `payloads/` directory after
-  validation. Remember to move the files `generated_payloads/` → `payloads/` before trying to send the latest version.
-* Remember to adapt the JSON Schema file to your main config structure.
-* When you (a human developer) need tokens, choose one of two patterns:
-  1. Manual Token (Auth Code Flow)
-     * Obtain an Azure token via Postman.
-     * Add it to your secrets file (`<org_id>-<env_type>-secrets.json`):
-       ```json
-       {
-         "az-token": "ey..."
-       }
-       ```  
-  2. Client Credentials Flow 
-     * Us the built-in OAuth helper:
-       ```text
-       from utils.oauth_client_credentials import OAuthClientCredentials
+# Install dependencies
+uv pip install -r pyproject.toml
+```
 
-       oauth = OAuthClientCredentials.from_org_env("txo", "test")
-       token = oauth.get_access_token_string()
-       ```
+### Step 3: Choose Your Organization and Environment
 
-## AI Instructions
+The template uses two key parameters for all scripts:
+- **`org_id`**: Organization identifier (e.g., "acme", "demo", "mycompany")
+- **`env_type`**: Environment type (e.g., "test", "prod", "dev")
 
-* Do not use print-use extensive logging.
-* Only invoke public helpers from `utils/`.
-* Adhere to DRY principles—prefer clarity over micro-optimizations.
-* Include inline docstrings matching this repo’s style.
-* Do not assume any behavior not already covered by our helpers (e.g., path resolution, logging, configuration loading).
-* Always create a Markdown file **first** in each step before coding, as project definition. 
-* Ask question before creating additional files and scripts.
-* If a script becomes large, recommend refactoring it to a Python Package.
-* Use type hints.
-* Have argparse in main() with named args: org_id, env_typ and help description.
-* Remember to update the JSON Schema `org-env-config-schema.json` when updating the main config file.
-* Use hard fails `something['key']` instead of `something.get('key')`.
+These parameters ensure:
+- Configuration files are properly separated: `acme-test-config.json` vs `acme-prod-config.json`
+- Output files are clearly identified: `acme-test-report_2025-01-15.xlsx`
+- Multiple organizations can use the same codebase
 
+### Step 4: Run the Test Script
+
+**Using PyCharm (Recommended):**
+1. Right-click on `test_github_api.py` in the `src/` folder
+2. Select **More Run/Debug → Modify Run Configuration...**
+3. In **Script parameters** field, enter your chosen org_id and env_type (e.g., `demo test`)
+4. Click **OK**
+5. Click the green **Run** button (▶) in the top toolbar
+
+**Using Command Line:**
+```bash
+# Run with your chosen org_id and env_type
+python src/test_github_api.py demo test
+
+# This will:
+# 1. Create a config file requirement (follow the error message to create it)
+# 2. Fetch data from GitHub's public API
+# 3. Save results to output/demo-test-github_repos_*.json
+```
+
+## Getting Started - Recommended Reading Path
+
+After the Quick Start, follow this learning path:
+
+1. **Read this README completely** - Understand the structure and patterns
+2. **Read [in-depth-readme.md](in-depth-readme.md)** - Learn all patterns in detail
+3. **Read [Architecture Decision Records](ai/decided/adr-records.md)** - Understand why we built it this way
+4. **Upload AI prompt to Claude** - Use `ai/prompts/txo-python-template-v3.0.xml` for AI assistance
+
+## Troubleshooting with AI
+
+When debugging issues with AI assistance, follow these steps for best results:
+
+### 1. Generate Clean Debug Logs
+Since we always have `debug` level logging to file, you have a lot of useful information in the file.
+```bash
+# Delete old log files to reduce noise
+rm logs/*.log
+
+# Run your failing script again
+python src/your_script.py demo test
+
+# The new log file will contain only relevant debug information
+```
+
+### 2. Provide Context to AI
+Upload to the AI:
+- The fresh log file from `logs/`
+- Your script that's failing
+- The specific error message
+- Your config file (remove secrets first)
+
+### 3. Common Issues to Check First
+Before asking AI, verify:
+- Config file exists: `config/{org_id}-{env_type}-config.json`
+- Required keys are in config (check against schema)
+- API endpoint is accessible (test with curl/Postman)
+- Token is valid (check expiration)
+- Output directory exists and is writable
+
+### 4. Improving Debug Information
+Add strategic debug logging to identify issues:
+```python
+# Log the actual values being used
+logger.debug(f"API URL: {url}")
+logger.debug(f"Headers: {headers}")
+logger.debug(f"Payload size: {len(str(payload))} chars")
+
+# Log before and after critical operations
+logger.debug("About to call API...")
+response = api.get(url)
+logger.debug(f"API returned status: {response.status_code}")
+
+# Log data transformations
+logger.debug(f"Input records: {len(input_data)}")
+logger.debug(f"After filtering: {len(filtered_data)}")
+```
+
+### 5. Error Pattern Recognition
+The AI can better help if you identify the pattern:
+- **ConfigurationError**: Missing or invalid config
+- **ApiAuthenticationError**: Token/credential issues
+- **ApiTimeoutError**: Network or performance issues
+- **HelpfulError**: Already contains the solution
+- **KeyError**: Missing required config key
+
+### 6. Minimal Reproducible Example
+Create a minimal script that reproduces the issue:
+```python
+# src/debug_test.py
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.api_factory import create_rest_api
+
+logger = setup_logger()
+
+def main():
+    config = parse_args_and_load_config("Debug test")
+    logger.debug(f"Config loaded: {list(config.keys())}")
+    
+    # Add only the failing operation
+    api = create_rest_api(config)
+    result = api.get("https://api.example.com/test")
+    logger.info(f"Result: {result}")
+
+if __name__ == "__main__":
+    main()
+```
 
 ## Project Structure
 
-Tentixo's project structure with explanation of directories and files.
-
 ```
-example-project/
-    ├── config/             # Config files for logger and <org_id>-<env_type>-config and <org_id>-<env_type>-config-secrets.json 
-    │   ├── logging-config.json                               # Tentixo's default logging config
-    │   ├── <org_id>-<env_typoe>-config.json                  # Naming convention of config files. Input parameters org_id and env_type
-    │   ├── <org_id>-<env_typoe>-config-secrets.json          # As above but for passwords and credentials. Pattern in .gitignore
-    │   └── <org_id>-<env_typoe>-config-secrets_example.json  # An key-only secrets file that can be committed 
-    ├── data/               # Input files (especially designed for the project)
-    ├── files/              # General file directory (default downloaded files)
-    ├── generated_payloads/ # For drafts and intermediate payloads; move to payloads/ after validation.  
-    │   └── .gitignore        # To block check-in of this content
-    ├── logs/               # Log files
-    │   └── .gitignore        # To block check-in of this content
-    ├── output/             # Output files
-    ├── payloads/           # Payload files to be sent to API. Moved here from generated_payload/
-    ├── prompts/            # Project context for AI
-    ├── schemas/            # Schemas for config files validation (not schemas for edi_parser)
-    │   └── org-env-config-schema.json        # Schema file for main config file for all org_id and env_type.
-    ├── src/                # Source code, main scripts
-    └── utils/              # Helper files
-        ├── api_helpers.py    # API helper for REST and SOAP
-        ├── concurrency.py    # To handle concurrent API calls
-        ├── config_loader.py  # To load config data and config-secrets
-        ├── exceptions.py     # Exception handling for API calls
-        ├── load_n_save.py    # To load and save need files
-        ├── logger.py         # Txo default logger: INFO to conssole, DEBUG to file (logs/)
-        ├── oauth_client_credentials.py  # Auto token retriever for Client Credential flow
-        └── path_helpers.py   # Helper to find and save in the correct directory
+txo-python-template/
+├── ai/                     # AI assistance files
+│   ├── decided/            # Architecture Decision Records (ADRs) and finished AI reports
+│   ├── prompts/            # AI prompt templates
+│   └── reports/            # AI reports good but not finished
+├── config/                 # Configuration files
+│   ├── logging-config.json
+│   └── {org}-{env}-config.json
+├── data/                   # Input data files
+├── files/                  # General files
+├── generated_payloads/     # Draft payloads (validate before use)
+├── logs/                   # Log files (gitignored)
+├── output/                 # Generated output files
+├── payloads/              # Validated payloads ready to send
+├── schemas/               # JSON schemas for validation
+├── src/                   # Main scripts
+│   └── test_github_api.py
+├── tmp/                   # Temporary files (gitignored)
+├── utils/                 # Helper modules
+│   ├── api_common.py      # Rate limiting, circuit breaker
+│   ├── api_factory.py     # API client creation
+│   ├── concurrency.py     # Parallel processing
+│   ├── config_loader.py   # Configuration management
+│   ├── exceptions.py      # Custom exceptions
+│   ├── load_n_save.py     # File I/O operations
+│   ├── logger.py          # Logging setup
+│   ├── oauth_helpers.py   # OAuth 2.0 support
+│   ├── path_helpers.py    # Path management
+│   ├── rest_api_helpers.py # REST client
+│   ├── script_runner.py   # Script initialization
+│   └── url_helpers.py     # URL construction
+└── wsdl/                  # WSDL files (if needed)
 ```
 
----
+## Core Patterns
 
-## Utilities Overview
+### Standard Script Structure
+```python
+# src/my_script.py
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
 
-### `utils/api_helpers.py`
+logger = setup_logger()
 
-**Purpose:** API helper for REST and SOAP calls, with retries and error handling.  
-**Entry Functions:**
+def main():
+    config = parse_args_and_load_config("My script description")
+    logger.info(f"Starting {config['_org_id']}-{config['_env_type']}")
+    # Your code here
 
-- `soap_error_handler`
-- `retry_api_call`
+if __name__ == "__main__":
+    main()
+```
 
-**Entry Classes & Methods:**
+### Error Handling with HelpfulError
+```python
+from utils.exceptions import HelpfulError
 
-- **`RestAPI`**: `from_headers`, `get`, `post`, `patch`, `put`, `delete`
-- **`SoapAPI`**: `from_headers`, `reinitialize`, `get_client`, `read`, `read_multiple`, `create`, `update`, `delete`,
-  `patch`, `fetch_key_for_api`
-- **`BusinessCentralErrorClassifier`**: `classify_error`, `create_business_exception`
-- **`SOAPFaultDetector`**: `detect_fault_in_response`
-- **`APIResponse`**: `success`, `to_exception`
-
----
-
-### `utils/concurrency.py`
-
-**Purpose:** Utilities for running tasks in parallel environments or threads.  
-**Entry Functions:**
-
-- `run_parallel_environments`
-- `run_script`
-- `load_bc_config`
-
-_No entry classes (only internal helpers)._
-
----
-
-### `utils/config_loader.py`
-
-**Purpose:** Load and validate configuration files and headers.  
-**Entry Functions:**
-
-- `get_config_loader`
-- `load_config_and_headers`
-
-**Entry Class & Methods:**
-
-- **`ConfigLoader`**:
-    - `config_filename`
-    - `secrets_filename`
-    - `validate_schema`
-    - `load`
-    - `get_token`
-    - `get_headers`
-    - `get_cb_user_password`
-    - `get_oauth_tenant_id`
-    - `get_oauth_client_id`
-    - `get_oauth_client_secret`
-    - `get_oauth_scope`
-
----
-
-### `utils/exceptions.py`
-
-**Purpose:** Custom exception types and structured error context.  
-**Entry Class & Methods:**
-
-- **`ErrorContext`**: `to_dict`
-
-_No entry functions._
-
----
-
-### `utils/load_n_save.py`
-
-**Purpose:** Load and save various data formats (JSON, CSV, Excel, Pickle).  
-**Entry Class & Methods:**
-
-- **`TxoDataHandler`**:
-    - `load_mapping_sheet`
-    - `load_vat_config`
-    - `load_json`
-    - `load_excel`
-    - `load_package`
-    - `save`
-
-_No entry functions._
-
----
-
-### `utils/logger.py`
-
-**Purpose:** Configure structured logging (console + file).  
-**Entry Function:**
-
-- `setup_logger`
-
-**Entry Classes & Methods:**
-
-- **`ContextFilter`**: `filter`
-- **`SafeFormatter`**: `format`
-- **`TxoDefaultLogger`**: `set_context`, `debug`, `info`, `warning`, `error`, `critical`
-
----
-
-### `utils/oauth_client_credentials.py`
-
-**Purpose:** OAuth 2.0 flows (manual tokens & client credentials).  
-_No entry functions._
-
-**Entry Classes & Methods:**
-
-- **`OAuthClientCredentials`**: `from_config_loader`, `from_org_env`, `get_token`, `get_access_token_string`,
-  `get_headers`, `invalidate_cache`, `get_token_info`
-- **`TokenResponse`**: `is_expired`, `bearer_token`, `to_headers`
-
----
-
-### `utils/path_helpers.py`
-
-**Purpose:** Resolve and manage project directory paths.  
-**Entry Functions:**
-
-- `get_path`
-- `set_project_root`
-
-**Entry Class & Methods:**
-
-- **`ProjectPaths`**: `init`, `ensure_dirs`
-
----
-
-## Getting Started
-
-1. Clone this repository.
-2. See [Tentixo’s `txo-brain-pain` repo](https://github.com/tentixo/txo-brain-pain) for environment setup, including
-   `.zshrc`, `.zprofile`, and `uv` installation.
-
----
-
-## Dependencies
-
-- **Python 3.13**
-- Install via `pyproject.toml` (uv). PyCharm will auto-detect this—**do not** edit `requirements.txt` directly.
-
----
+raise HelpfulError(
+    what_went_wrong="Config file 'settings.json' not found",
+    how_to_fix="Create the file in config/ directory",
+    example="See config/example.json for format"
+)
+```
 
 ## Configuration
 
-Place your config files in a `config/` folder at the project root:
+### Basic Config Structure
 
-- **Public config**: `<org_id>-<env_type>.json`  
-  (e.g. `txo-test-config.json`)
-- **Secrets**: `<org_id>-<env_type>-secrets.json`  
-  (e.g. `txo-test-secrets.json`)
+**Important**: When you modify configuration structure, you MUST update the JSON Schema in `schemas/org-env-config-schema.json` to match your changes.
 
-The filename indicates which JSON Schema (`org-env-config-schema.json`) it must conform to.
+```json
+{
+  "global": {
+    "api-base-url": "https://api.example.com",
+    "tenant-id": "your-tenant",
+    "client-id": "your-client-id",
+    "oauth-scope": "https://api.example.com/.default"
+  },
+  "script-behavior": {
+    "enable-rate-limiting": true,
+    "rate-limit-per-second": 10,
+    "api-timeouts": {
+      "rest-timeout-seconds": 60,
+      "max-retries": 3
+    }
+  }
+}
+```
 
----
+### Secrets File (gitignored)
+```json
+{
+  "client-secret": "your-oauth-secret",
+  "az-token": "fallback-bearer-token"
+}
+```
 
-## Initialization
+## Architecture Decision Records (ADRs)
 
-At the top of every module, initialize core helpers:
+We use ADRs to document important architecture decisions. ADRs help:
+- Understand why certain patterns were chosen
+- Maintain consistency across the codebase
+- Onboard new developers faster
+- Avoid repeating past mistakes
 
-```python
-from utils.logger import setup_logger
-from utils.load_n_save import TxoDataHandler
+Read our ADRs in [ai/decided/adr-records.md](ai/decided/adr-records.md)
 
-logger = setup_logger()
-data_handler = TxoDataHandler()
+When making significant changes, create a new ADR following the template in the file.
+
+## Dependencies
+
+### Core Requirements
+- Python 3.13+
+- jsonschema - Configuration validation
+- openpyxl - Excel support
+- pandas - Data manipulation
+- python-dotenv - Environment variables
+- requests - HTTP client
+
+### Optional Extensions
+- tenacity - Advanced retry patterns
+- tqdm - Progress bars
+- zeep - SOAP support (not included by default)
+
+## Best Practices
+
+1. **Never use `print()`** - Always use logger
+2. **Never hardcode paths** - Use `get_path()` helper
+3. **Always include type hints** - Better IDE support
+4. **Pass config dict** - Not individual parameters
+5. **Use HelpfulError** - Clear error messages
+6. **Update JSON schemas** - When changing config structure
+7. **Log extensively** - DEBUG for details, INFO for milestones
+
+## Key Commands
+
+```bash
+# Run any script with org_id and env_type
+python src/script_name.py <org_id> <env_type>
+
+# With optional flags
+python src/script_name.py txo prod --no-token    # Skip authentication
+python src/script_name.py txo test --debug        # Enable debug logging
+python src/script_name.py txo dev --no-validation # Skip schema validation
+```
+
+## Future Development
+
+- Unit tests for helper modules
+- Integration tests for API clients
+- Performance benchmarks for parallel processing
+- Additional API authentication methods
+- GraphQL support
+
+## Contributing
+
+1. Follow the established patterns
+2. Add type hints and docstrings
+3. Use HelpfulError for user-facing errors
+4. Update JSON schemas when changing config
+5. Create ADRs for significant changes
+6. Test with both test and prod configurations
+
+## License
+
+Released under the MIT License. See [LICENSE](./LICENSE) for details.
+
+## Support
+
+- **REST/OData Issues**: Open an issue on GitHub
+- **SOAP Support**: Contact Morre directly
+- **General Questions**: Check the in-depth documentation first
+
+## Links
+
+- [Tentixo GitHub](https://github.com/tentixo)
+- [Issue Tracker](https://github.com/tentixo/txo-python-template/issues)
+- [Architecture Decisions](ai/decided/adr-records.md)
