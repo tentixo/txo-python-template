@@ -5,7 +5,7 @@ Enhanced script runner utilities with improved error handling and flexibility.
 Provides robust script initialization with:
 - OAuth token acquisition with caching
 - Flexible argument parsing
-- Configuration validation
+- Configuration validation with secrets injection
 - Context manager support
 - Enhanced error recovery
 - Clear, actionable error messages
@@ -14,20 +14,19 @@ Provides robust script initialization with:
 import argparse
 import sys
 import time
-from typing import Dict, Any, List, Tuple, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Tuple
 from dataclasses import dataclass
 from contextlib import contextmanager
 
 import requests
 
 from utils.config_loader import ConfigLoader
-from utils.load_n_save import TxoDataHandler
 from utils.logger import setup_logger
 from utils.oauth_helpers import OAuthClient
 from utils.exceptions import ApiAuthenticationError, HelpfulError
 
+# Initial logger without context
 logger = setup_logger()
-data_handler = TxoDataHandler()
 
 
 @dataclass
@@ -77,6 +76,7 @@ class ScriptRunner:
         self.cache_token = cache_token
         self.config: Optional[Dict[str, Any]] = None
         self.oauth_client: Optional[OAuthClient] = None
+        self.logger = logger  # Store initial logger reference
 
     def get_access_token(self, config: Dict[str, Any],
                          retry_count: int = 3,
@@ -84,8 +84,10 @@ class ScriptRunner:
         """
         Get access token with enhanced error handling and retry logic.
 
+        Uses OAuth configuration from config and injected secrets.
+
         Args:
-            config: Loaded configuration dictionary
+            config: Loaded configuration dictionary with injected secrets
             retry_count: Number of retry attempts
             retry_delay: Delay between retries (doubled each retry)
 
@@ -98,31 +100,17 @@ class ScriptRunner:
         org_id = config["_org_id"]
         env_type = config["_env_type"]
 
-        # Load secrets file
-        secrets_filename = f"{org_id}-{env_type}-config-secrets.json"
-        try:
-            secrets = data_handler.load_json('config', secrets_filename)
-            logger.info(f"✅ Successfully loaded secrets: {secrets_filename}")
-        except FileNotFoundError:
-            raise HelpfulError(
-                what_went_wrong=f"Secrets file '{secrets_filename}' not found in config/ directory",
-                how_to_fix=f"Create the file 'config/{secrets_filename}' with your OAuth credentials",
-                example="""Example secrets file:
-{
-  "client-secret": "your-client-secret-here",
-  "az-token": "optional-fallback-token"
-}"""
-            )
-
         # Try OAuth client credentials with retry
         oauth_errors = []
         for attempt in range(retry_count):
             try:
-                # Extract OAuth configuration
+                # Extract OAuth configuration from main config
                 tenant_id = config.get("global", {}).get("tenant-id")
                 client_id = config.get("global", {}).get("client-id")
                 oauth_scope = config.get("global", {}).get("oauth-scope")
-                client_secret = secrets.get("client-secret")
+
+                # Get client secret from injected secrets
+                client_secret = config.get("_client_secret")  # Injected from secrets
 
                 if not all([tenant_id, client_id, oauth_scope, client_secret]):
                     missing = []
@@ -153,7 +141,7 @@ Secrets file should have:
 }"""
                     )
 
-                logger.info(f"OAuth token acquisition attempt {attempt + 1}/{retry_count}...")
+                self.logger.info(f"OAuth token acquisition attempt {attempt + 1}/{retry_count}...")
 
                 # Use cached OAuth client if available
                 if not self.oauth_client:
@@ -169,38 +157,42 @@ Secrets file should have:
                     tenant_id=tenant_id
                 )
 
-                logger.info("✅ Successfully acquired token via OAuth client credentials")
+                self.logger.info("✅ Successfully acquired token via OAuth client credentials")
                 return token
 
             except (requests.HTTPError, ApiAuthenticationError) as e:
                 oauth_errors.append(str(e))
                 if attempt < retry_count - 1:
                     wait_time = retry_delay * (2 ** attempt)
-                    logger.warning(f"OAuth attempt {attempt + 1} failed: {e}")
-                    logger.info(f"Retrying in {wait_time:.1f} seconds...")
+                    self.logger.warning(f"OAuth attempt {attempt + 1} failed: {e}")
+                    self.logger.info(f"Retrying in {wait_time:.1f} seconds...")
                     time.sleep(wait_time)
                 else:
-                    logger.warning(f"All OAuth attempts failed. Errors: {oauth_errors}")
+                    self.logger.warning(f"All OAuth attempts failed. Errors: {oauth_errors}")
 
             except Exception as e:
-                logger.warning(f"Unexpected error during OAuth: {e}")
+                self.logger.warning(f"Unexpected error during OAuth: {e}")
                 oauth_errors.append(str(e))
                 break
 
-        # Fallback to pre-generated token from secrets file
-        logger.info("Attempting fallback to secrets file token...")
+        # Fallback to pre-generated token from secrets (injected as _az_token)
+        self.logger.info("Attempting fallback to injected token from secrets...")
 
         try:
-            token = secrets["az-token"]
-            logger.info("✅ Successfully loaded fallback token from secrets file")
+            token = config.get("_az_token")  # Injected from secrets
+            if not token:
+                raise KeyError("No fallback token available")
+
+            self.logger.info("✅ Successfully using fallback token from secrets")
 
             # Validate token format (basic check)
-            if not token or len(token) < 20:
+            if len(token) < 20:
                 raise ValueError("Invalid token format")
 
             return token
 
         except KeyError:
+            secrets_filename = f"{org_id}-{env_type}-config-secrets.json"
             raise HelpfulError(
                 what_went_wrong="Failed to acquire authentication token",
                 how_to_fix="Either fix the OAuth configuration or add a fallback token to secrets",
@@ -265,7 +257,7 @@ To add a fallback token, update config/{secrets_filename}:
                 if arg_def.default is not None or not arg_def.required:
                     arg_name = f"--{arg_def.name.replace('_', '-')}"
                     kwargs["default"] = arg_def.default
-                    kwargs["required"] = bool(arg_def.required)
+                    kwargs["required"] = arg_def.required
                 else:
                     arg_name = arg_def.name
 
@@ -287,7 +279,7 @@ To add a fallback token, update config/{secrets_filename}:
         if args.debug:
             import logging
             logging.getLogger().setLevel(logging.DEBUG)
-            logger.debug("Debug logging enabled")
+            self.logger.debug("Debug logging enabled")
 
         return args
 
@@ -301,18 +293,29 @@ To add a fallback token, update config/{secrets_filename}:
             extra_args: Optional list of argument definitions for injection
 
         Returns:
-            Complete configuration dictionary
+            Complete configuration dictionary with injected values
 
         Raises:
             HelpfulError: If configuration loading fails
         """
+        # Set logger context as early as possible
+        global logger
+        logger = setup_logger(org_id=args.org_id)
+        self.logger = logger
+        self.logger.info(f"Starting {self.description} for {args.org_id}-{args.env_type}")
+
         try:
-            # Load the main configuration
+            # Load the main configuration with secrets
             config_loader = ConfigLoader(args.org_id, args.env_type)
 
             # Use validation flag (can be overridden by command line)
             should_validate = self.validate_config and not getattr(args, 'no_validation', False)
-            config = config_loader.load_config(validate=should_validate)
+
+            # Load config with secrets automatically injected
+            config = config_loader.load_config(
+                validate=should_validate,
+                include_secrets=True  # Secrets are injected with underscore prefix
+            )
 
         except HelpfulError:
             # Re-raise HelpfulError as-is
@@ -350,7 +353,7 @@ To add a fallback token, update config/{secrets_filename}:
                     example="See previous error messages for specific issues"
                 )
         else:
-            logger.info("Token acquisition skipped")
+            self.logger.info("Token acquisition skipped")
             config["_token"] = None
 
         self.config = config
@@ -373,20 +376,20 @@ To add a fallback token, update config/{secrets_filename}:
         return self.load_configuration(args, extra_args)
 
 
-def parse_args_and_load_config_extended(
+def parse_custom_args_and_load_config(
         description: str,
-        extra_args: Optional[List[Tuple[str, type, str]]] = None,
+        custom_args: Optional[List[Tuple[str, type, str]]] = None,
         require_token: bool = True,
         validate_config: bool = True,
         cache_token: bool = True) -> Dict[str, Any]:
     """
-    Parse command line arguments and load configuration with OAuth token acquisition.
+    Parse command line arguments (including custom ones) and load configuration.
 
-    Enhanced version with better error handling and flexibility.
+    Enhanced version that accepts additional custom arguments beyond org_id and env_type.
 
     Args:
         description: Script description for help text
-        extra_args: Optional list of extra arguments as tuples of (name, type, help_text)
+        custom_args: Optional list of extra arguments as tuples of (name, type, help_text)
         require_token: Whether to acquire OAuth token
         validate_config: Whether to validate configuration
         cache_token: Whether to use token caching
@@ -396,13 +399,22 @@ def parse_args_and_load_config_extended(
 
     Raises:
         SystemExit: On error, after printing helpful message
+
+    Example:
+         config = parse_custom_args_and_load_config(
+        ...     "Batch processor",
+        ...     custom_args=[
+        ...         ("batch_size", int, "Number of items per batch"),
+        ...         ("dry_run", bool, "Run without making changes")
+        ...     ]
+        ... )
     """
     # Convert old-style tuple arguments to ArgumentDefinition
     arg_definitions = None
-    if extra_args:
+    if custom_args:
         arg_definitions = [
             ArgumentDefinition(name=name, type=arg_type, help=help_text)
-            for name, arg_type, help_text in extra_args
+            for name, arg_type, help_text in custom_args
         ]
 
     try:
@@ -450,10 +462,16 @@ def parse_args_and_load_config(description: str,
 
     Raises:
         SystemExit: On error, after printing helpful message
+
+    Example:
+         config = parse_args_and_load_config("My data processor")
+         print(config['_org_id'])  # From command line
+         print(config['_token'])   # OAuth token
+         print(config['_client_secret'])  # From secrets file
     """
-    return parse_args_and_load_config_extended(
+    return parse_custom_args_and_load_config(
         description=description,
-        extra_args=None,
+        custom_args=None,  # No custom args, just org_id and env_type
         require_token=require_token,
         validate_config=validate_config,
         cache_token=True
@@ -481,9 +499,9 @@ def script_context(description: str,
 
     Example:
          with script_context("My Script") as config:
-        ... # Script logic here
-        ... api = create_rest_api(config)
-        ... api.get(url)
+        ...     # Script logic here
+        ...     api = create_rest_api(config)
+        ...     api.get(url)
     """
     config = None
     start_time = time.time()

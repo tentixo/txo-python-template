@@ -115,7 +115,7 @@
 
     <module name="utils.api_factory">
       <function>
-        create_rest_api(config) → MinimalRestAPI
+        create_rest_api(config) → TxoRestAPI
         → Includes retry logic, rate limiting, circuit breaker
         → Handles 202 Accepted async operations
       </function>
@@ -128,7 +128,7 @@
     </module>
 
     <module name="utils.rest_api_helpers">
-      <class name="MinimalRestAPI">
+      <class name="TxoRestAPI">
         <method>get(url, params=None) → Dict</method>
         <method>post(url, json_data=None) → Dict</method>
         <method>patch(url, json_data=None, etag=None) → Dict</method>

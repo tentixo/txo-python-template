@@ -655,6 +655,131 @@ result = batch_process(
 7. **Monitor memory**: Use __slots__ for high-volume processing
 8. **Profile performance**: Use cProfile for bottlenecks
 
+## Module Dependencies
+
+Understanding the dependency structure helps with debugging and refactoring:
+
+```mermaid
+graph TD
+    %% Dark theme color palette with white text
+    classDef ORG    fill:#0D5ED7,stroke:#444,stroke-width:4px,color:#fff
+    classDef I      fill:#237046,stroke:#444,stroke-width:4px,color:#fff
+    classDef P      fill:#870000,stroke:#444,stroke-width:4px,color:#fff
+    classDef R      fill:#4B0082,stroke:#444,stroke-width:4px,color:#fff
+    classDef O      fill:#A34700,stroke:#444,stroke-width:4px,color:#fff
+    classDef C      fill:#2F4F4F,stroke:#444,stroke-width:2px,color:#fff
+    classDef extra1 fill:#006C6C,stroke:#444,stroke-width:4px,color:#fff
+    classDef extra2 fill:#556B2F,stroke:#444,stroke-width:4px,color:#fff
+    classDef extra3 fill:#8B008B,stroke:#444,stroke-width:4px,color:#fff
+    classDef extra4 fill:#696969,stroke:#444,stroke-width:4px,color:#fff
+
+    %% Foundation Layer (ORG - Blue)
+    exceptions[exceptions.py]:::ORG
+    logger[logger.py]:::ORG
+    path_helpers[path_helpers.py]:::ORG
+    
+    %% Common Utilities (I - Green)
+    api_common[api_common.py]:::I
+    
+    %% Data Layer (P - Red)
+    load_n_save[load_n_save.py]:::P
+    
+    %% API Implementation (O - Brown/Orange)
+    rest_api_helpers[rest_api_helpers.py]:::O
+    soap_api_helpers[soap_api_helpers.py]:::O
+    oauth_helpers[oauth_helpers.py]:::O
+    
+    %% Orchestration (R - Purple)
+    api_factory[api_factory.py]:::R
+    config_loader[config_loader.py]:::R
+    script_runner[script_runner.py]:::R
+    
+    %% URL Utilities (extra1 - Teal)
+    url_helpers[url_helpers.py]:::extra1
+    url_builders[url_builders.py]:::extra1
+    
+    %% Concurrency (extra2 - Olive)
+    concurrency[concurrency.py]:::extra2
+    
+    %% User Scripts (C - Dark Gray/Teal)
+    user_script[src/*.py]:::C
+    
+    %% Dependencies
+    logger --> path_helpers
+    
+    api_common --> logger
+    
+    load_n_save --> logger
+    load_n_save --> path_helpers
+    load_n_save --> exceptions
+    
+    oauth_helpers --> logger
+    oauth_helpers --> exceptions
+    
+    rest_api_helpers --> logger
+    rest_api_helpers --> exceptions
+    rest_api_helpers --> api_common
+    
+    soap_api_helpers --> logger
+    soap_api_helpers --> exceptions
+    
+    url_helpers --> logger
+    
+    url_builders --> logger
+    url_builders --> config_loader
+    
+    config_loader --> logger
+    config_loader --> path_helpers
+    config_loader --> load_n_save
+    
+    api_factory --> logger
+    api_factory --> rest_api_helpers
+    api_factory --> soap_api_helpers
+    api_factory --> api_common
+    
+    concurrency --> logger
+    concurrency --> exceptions
+    
+    script_runner --> logger
+    script_runner --> config_loader
+    script_runner --> oauth_helpers
+    script_runner --> path_helpers
+    script_runner --> exceptions
+    
+    user_script --> script_runner
+    user_script --> api_factory
+    user_script --> load_n_save
+    user_script --> exceptions
+    user_script --> logger
+
+    %% Add legend
+    subgraph Legend
+        L1[Foundation - Blue]:::ORG
+        L2[Common - Green]:::I
+        L3[Data - Red]:::P
+        L4[API - Orange]:::O
+        L5[Orchestration - Purple]:::R
+        L6[URL Utils - Teal]:::extra1
+        L7[Concurrency - Olive]:::extra2
+        L8[User Scripts - Gray]:::C
+    end
+```
+More details i the [Module Dependency Diagram](module-dependency-diagram) file.
+
+### Refactoring Order
+
+When updating helper files, follow this dependency order:
+1. **exceptions.py** (no dependencies)
+2. **path_helpers.py** (foundation)
+3. **logger.py** (depends on path_helpers)
+4. **api_common.py** (depends on logger)
+5. **load_n_save.py** (depends on exceptions, logger, path_helpers)
+6. **oauth_helpers.py** (depends on logger, exceptions)
+7. **rest_api_helpers.py** (depends on api_common, exceptions, logger)
+8. **config_loader.py** (depends on logger, path_helpers, load_n_save)
+9. **api_factory.py** (depends on rest_api, api_common, logger)
+10. **script_runner.py** (top level orchestration)
+
 ## For More Information
 
 - See `ai/decided/adr-records.md` for architecture decisions
@@ -662,3 +787,4 @@ result = batch_process(
 - Check example scripts in `src/` directory
 - Review helper module docstrings for detailed usage
 - See JSON schemas in `schemas/` for configuration structure
+- Use `ai/prompts/txo-refactoring-prompt-v1.0.xml` when updating existing projects

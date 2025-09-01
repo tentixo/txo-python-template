@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<txo_refactoring_prompt version="2.0">
+  <metadata>
+    <purpose>Guide systematic refactoring of existing TXO template projects</purpose>
+    <last_updated>2025-01-15</last_updated>
+    <approach>Phase-based updates following dependency order</approach>
+    <improvements>Added specific code snippets, file analysis, test recommendations</improvements>
+  </metadata>
+
+  <initial_assessment>
+    <instruction priority="critical">
+      REQUEST FILES: "Please upload all files from your utils/ directory. I need to analyze:
+      1. Current versions and features
+      2. Custom modifications you've made
+      3. Dependency relationships
+      4. Size of changes needed"
+    </instruction>
+    
+    <analyze_uploaded_files>
+      FOR EACH uploaded file, check:
+      - Has HelpfulError? → exceptions.py
+      - Has TokenRedactionFilter? → logger.py
+      - Has RateLimiter/CircuitBreaker? → api_common.py
+      - Has intelligent save()? → load_n_save.py
+      - Has async operation support? → rest_api_helpers.py
+      - Has context managers? → api_factory.py
+    </analyze_uploaded_files>
+    
+    <generate_assessment>
+      ## Refactoring Assessment
+      
+      ### Current State
+      - Template Version: ~v1.0 (missing v2.0 features)
+      - Files needing major updates: X
+      - Files needing minor updates: Y
+      - Files up to date: Z
+      
+      ### Estimated Effort
+      - Small (< 1 hour): Just adding missing classes
+      - Medium (1-3 hours): Multiple files, new features
+      - Large (3+ hours): Complete overhaul needed
+      
+      ### Priority Updates Needed
+      1. Add HelpfulError for better UX
+      2. Add token redaction for security
+      3. Add rate limiting for API protection
+      4. Add intelligent save() for convenience
+    </generate_assessment>
+  </initial_assessment>
+
+  <change_tracking>
+    <live_tracking>
+      ## 📊 Refactoring Progress
+      
+      | File | Lines Changed | Features Added | Status | Test? |
+      |------|--------------|----------------|--------|-------|
+      | exceptions.py | +45 | HelpfulError, ErrorContext | ✅ | No |
+      | logger.py | +30 | TokenRedactionFilter | 🔄 | Yes |
+      | api_common.py | +120 | RateLimiter, CircuitBreaker | ⏳ | Yes |
+      | load_n_save.py | +15 | Type detection in save() | ⏳ | Yes |
+      | rest_api_helpers.py | +200 | Async ops, session pool | ⏳ | Yes |
+      
+      **Legend**: ✅ Done | 🔄 In Progress | ⏳ Pending | ❌ Skipped
+    </live_tracking>
+    
+    <test_recommendations>
+      IF total_lines_changed < 50: "Optional: Quick smoke test"
+      IF total_lines_changed 50-200: "Recommended: Test affected functions"
+      IF total_lines_changed > 200: "Required: Full integration test"
+      IF new_dependencies_added: "Required: Dependency test"
+    </test_recommendations>
+  </change_tracking>
+
+  <phase_1_foundation>
+    <title>Foundation Layer - Base Modules</title>
+    
+    <update file="exceptions.py">
+      <add_code>
+# Add at the end of exceptions.py
+
+class HelpfulError(TxoBaseError):
+    """Exception that provides helpful instructions to fix the problem."""
+    
+    def __init__(self, what_went_wrong: str,
+                 how_to_fix: str,
+                 example: Optional[str] = None):
+        message = f"\n❌ Problem: {what_went_wrong}\n\n✅ Solution: {how_to_fix}"
+        if example:
+            message += f"\n\n📝 Example:\n{example}"
+        super().__init__(message)
+        self.what_went_wrong = what_went_wrong
+        self.how_to_fix = how_to_fix
+        self.example = example
+
+# Also add if missing:
+class ApiRateLimitError(ApiError):
+    """Raised when API rate limit is exceeded."""
+    
+    def __init__(self, message: str = "Rate limit exceeded",
+                 retry_after: Optional[int] = None, **kwargs):
+        super().__init__(message, status_code=429, **kwargs)
+        self.retry_after = retry_after
+      </add_code>
+      
+      <quick_test>
+from utils.exceptions import HelpfulError
+raise HelpfulError(
+    what_went_wrong="Test",
+    how_to_fix="It works!",
+    example="See the nice format?"
+)
+      </quick_test>
+    </update>
+    
+    <update file="logger.py">
+      <add_code position="after imports">
+class TokenRedactionFilter(logging.Filter):
+    """Filter that redacts tokens and secrets from log messages."""
+    
+    SENSITIVE_PATTERNS = [
+        (r'Bearer\s+[A-Za-z0-9\-._~+/]+=*', 'Bearer [REDACTED]'),
+        (r'"api[_-]?token":\s*"[^"]*"', '"api_token": "[REDACTED]"'),
+        (r'"password":\s*"[^"]*"', '"password": "[REDACTED]"'),
+        (r'\b[A-Za-z0-9]{40,}\b', '[REDACTED_TOKEN]'),
+        (r'ey[A-Za-z0-9\-_]+\.ey[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+', '[REDACTED_JWT]'),
+    ]
+    
+    def filter(self, record: logging.LogRecord) -> bool:
+        if hasattr(record, 'msg'):
+            msg = str(record.msg)
+            for pattern, replacement in self.SENSITIVE_PATTERNS:
+                msg = re.sub(pattern, replacement, msg, flags=re.IGNORECASE)
+            record.msg = msg
+        return True
+      </add_code>
+      
+      <add_code position="in _setup_logger method">
+# Add after logger setup
+self.token_filter = TokenRedactionFilter()
+self.logger.addFilter(self.token_filter)
+      </add_code>
+      
+      <verify>
+logger = setup_logger()
+logger.info("Token: Bearer abc123xyz")
+# Should log: "Token: Bearer [REDACTED]"
+      </verify>
+    </update>
+  </phase_1_foundation>
+
+  <phase_2_common>
+    <title>Common Utilities - Shared Components</title>
+    
+    <update file="api_common.py">
+      <if_not_exists>
+        CREATE NEW FILE with RateLimiter, CircuitBreaker, apply_jitter
+      </if_not_exists>
+      
+      <add_classes>
+class RateLimiter:
+    """Simple rate limiter using token bucket algorithm."""
+    
+    def __init__(self, calls_per_second: float = 10):
+        self.rate = calls_per_second
+        self.allowance = calls_per_second
+        self.last_check = time.time()
+    
+    def wait_if_needed(self) -> None:
+        current = time.time()
+        time_passed = current - self.last_check
+        self.last_check = current
+        self.allowance += time_passed * self.rate
+        
+        if self.allowance > self.rate:
+            self.allowance = self.rate
+        
+        if self.allowance < 1.0:
+            sleep_time = (1.0 - self.allowance) / self.rate
+            time.sleep(sleep_time)
+            self.allowance = 0.0
+        else:
+            self.allowance -= 1.0
+
+class CircuitBreaker:
+    """Circuit breaker pattern implementation."""
+    
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self._failures = 0
+        self._last_failure = 0.0
+        self._state = "closed"
+    
+    def is_open(self) -> bool:
+        if self._state == "closed":
+            return False
+        if time.time() - self._last_failure >= self.timeout:
+            self._state = "half-open"
+            return False
+        return self._state == "open"
+      </add_classes>
+    </update>
+  </phase_2_common>
+
+  <phase_3_data>
+    <title>Data Layer - File Operations</title>
+    
+    <update file="load_n_save.py">
+      <check>Does save() method have type detection?</check>
+      
+      <enhance_save_method>
+        The save() method should detect:
+        1. DataFrame (has to_csv and to_excel methods) → Use extension
+        2. dict/list → JSON with DecimalEncoder
+        3. string → Text file
+        4. Workbook (has save method) → Excel
+        
+        KEY POINT: User should NEVER call save_json(), save_excel()
+        Just save() with the right extension!
+      </enhance_save_method>
+      
+      <add_decimal_encoder>
+class DecimalEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles Decimal objects."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+      </add_decimal_encoder>
+      
+      <test_save_intelligence>
+# Test type detection
+from decimal import Decimal
+data_handler = TxoDataHandler()
+
+# JSON with Decimal
+data = {"amount": Decimal("99.99")}
+path = data_handler.save(data, "tmp", "test.json")
+
+# String to text
+text = "Test report"
+path = data_handler.save(text, "tmp", "report.txt")
+
+print("✅ Intelligent save works!")
+      </test_save_intelligence>
+    </update>
+  </phase_3_data>
+
+  <phase_4_api>
+    <title>API Layer - REST Client Enhancements</title>
+    
+    <update file="rest_api_helpers.py">
+      <major_additions>
+        1. SessionManager class for connection pooling
+        2. Integration with RateLimiter and CircuitBreaker
+        3. Async operation support (202 Accepted)
+        4. Enhanced retry logic
+      </major_additions>
+      
+      <add_async_support>
+def _handle_async_operation(self, response: requests.Response, 
+                           context: str) -> Dict[str, Any]:
+    """Handle 202 Accepted responses with polling."""
+    if response.status_code != 202:
+        return response.json() if response.content else {}
+    
+    location = response.headers.get('Location')
+    if not location:
+        return response.json() if response.content else {}
+    
+    retry_after = int(response.headers.get('Retry-After', 5))
+    max_wait = self.timeouts.get('async-max-wait', 300)
+    
+    start_time = time.time()
+    while time.time() - start_time < max_wait:
+        time.sleep(self.apply_jitter(retry_after))
+        status_response = self._execute_request("GET", location, 
+                                               skip_async_check=True)
+        if status_response.status_code == 200:
+            return status_response.json()
+        elif status_response.status_code != 202:
+            self._handle_response_error(status_response, "Async operation")
+    
+    raise ApiTimeoutError(f"Async operation timeout after {max_wait}s")
+      </add_async_support>
+      
+      <test_with_mock>
+# Test 202 handling (mock or real endpoint)
+api = create_rest_api(config)
+# If endpoint returns 202, it should poll automatically
+result = api.post("/long-operation", {"data": "test"})
+print(f"Async operation completed: {result}")
+      </test_with_mock>
+    </update>
+  </phase_4_api>
+
+  <phase_5_orchestration>
+    <title>Orchestration - High-Level Components</title>
+    
+    <update file="api_factory.py">
+      <add_functions>
+def _get_rate_limiter(config: Dict[str, Any]) -> Optional[RateLimiter]:
+    """Create rate limiter from configuration if enabled."""
+    script_behavior = config.get("script-behavior", {})
+    if not script_behavior.get("enable-rate-limiting", False):
+        return None
+    calls_per_second = script_behavior.get("rate-limit-per-second", 10)
+    return RateLimiter(calls_per_second=calls_per_second)
+
+def _get_circuit_breaker(config: Dict[str, Any]) -> Optional[CircuitBreaker]:
+    """Create circuit breaker from configuration if enabled."""
+    script_behavior = config.get("script-behavior", {})
+    if not script_behavior.get("enable-circuit-breaker", False):
+        return None
+    threshold = script_behavior.get("circuit-breaker-threshold", 5)
+    timeout = script_behavior.get("circuit-breaker-timeout", 60)
+    return CircuitBreaker(failure_threshold=threshold, timeout=timeout)
+      </add_functions>
+      
+      <modify_create_rest_api>
+        # Pass rate_limiter and circuit_breaker to TxoRestAPI
+        rate_limiter = _get_rate_limiter(config)
+        circuit_breaker = _get_circuit_breaker(config)
+        
+        api = TxoRestAPI(
+            token=token,
+            timeout_config=timeout_config,
+            jitter_config=jitter_config,
+            rate_limiter=rate_limiter,
+            circuit_breaker=circuit_breaker
+        )
+      </modify_create_rest_api>
+      
+      <add_context_manager>
+class ApiManager:
+    """Context manager for API lifecycle management."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self._rest_api = None
+    
+    def get_rest_api(self):
+        if self._rest_api is None:
+            self._rest_api = create_rest_api(self.config)
+        return self._rest_api
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._rest_api and hasattr(self._rest_api, 'close'):
+            self._rest_api.close()
+      </add_context_manager>
+    </update>
+  </phase_5_orchestration>
+
+  <validation_suite>
+    <title>Validation and Testing</title>
+    
+    <create_test_script>
+# src/test_v2_features.py
+"""Test all v2.0 features after refactoring."""
+
+from decimal import Decimal
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.load_n_save import TxoDataHandler
+from utils.api_factory import create_rest_api, ApiManager
+from utils.exceptions import HelpfulError, ApiRateLimitError
+from utils.api_common import RateLimiter, CircuitBreaker
+
+logger = setup_logger()
+data_handler = TxoDataHandler()
+
+def test_token_redaction():
+    """Test that tokens are redacted in logs."""
+    logger.info("Testing token: Bearer secret123abc")
+    logger.info('Testing JSON: {"password": "mysecret"}')
+    logger.info("Testing JWT: eyJhbGciOiJIUzI1NiIs.eyJzdWIiOiIxMjM0.abc123")
+    print("✅ Check log file - tokens should be [REDACTED]")
+
+def test_helpful_error():
+    """Test HelpfulError formatting."""
+    try:
+        raise HelpfulError(
+            what_went_wrong="Test error for validation",
+            how_to_fix="No action needed - this is a test",
+            example="This shows the nice formatting"
+        )
+    except HelpfulError as e:
+        print(str(e))
+        print("✅ HelpfulError displays correctly")
+
+def test_intelligent_save():
+    """Test automatic type detection in save()."""
+    # Test JSON with Decimal
+    json_data = {"amount": Decimal("99.99"), "count": 100}
+    path = data_handler.save(json_data, "tmp", "test.json", indent=2)
+    print(f"✅ JSON saved to {path}")
+    
+    # Test text
+    text_data = "This is a test report\nLine 2"
+    path = data_handler.save(text_data, "tmp", "test.txt")
+    print(f"✅ Text saved to {path}")
+    
+    # Test DataFrame if pandas available
+    try:
+        import pandas as pd
+        df = pd.DataFrame([{"a": 1, "b": 2}, {"a": 3, "b": 4}])
+        path = data_handler.save(df, "tmp", "test.csv", index=False)
+        print(f"✅ DataFrame saved as CSV to {path}")
+        
+        path = data_handler.save(df, "tmp", "test.xlsx", index=False)
+        print(f"✅ DataFrame saved as Excel to {path}")
+    except ImportError:
+        print("⚠️ Pandas not installed - skipping DataFrame tests")
+
+def test_rate_limiter():
+    """Test rate limiting functionality."""
+    limiter = RateLimiter(calls_per_second=5)
+    
+    import time
+    start = time.time()
+    for i in range(10):
+        limiter.wait_if_needed()
+    elapsed = time.time() - start
+    
+    # Should take ~2 seconds for 10 calls at 5/second
+    print(f"✅ Rate limiter: 10 calls took {elapsed:.1f}s (expected ~2s)")
+
+def test_circuit_breaker():
+    """Test circuit breaker functionality."""
+    breaker = CircuitBreaker(failure_threshold=3, timeout=5)
+    
+    # Record failures
+    for i in range(3):
+        breaker.record_failure()
+    
+    # Should be open now
+    if breaker.is_open():
+        print("✅ Circuit breaker opened after 3 failures")
+    else:
+        print("❌ Circuit breaker should be open")
+    
+    # Record success to reset
+    breaker.record_success()
+    if not breaker.is_open():
+        print("✅ Circuit breaker closed after success")
+
+def test_api_creation(config):
+    """Test API creation with new features."""
+    # Test with context manager
+    with ApiManager(config) as manager:
+        api = manager.get_rest_api()
+        print("✅ API created with context manager")
+    
+    # Test rate limiting from config
+    config_with_limiting = config.copy()
+    config_with_limiting["script-behavior"] = {
+        "enable-rate-limiting": True,
+        "rate-limit-per-second": 10
+    }
+    api = create_rest_api(config_with_limiting)
+    if api.rate_limiter:
+        print("✅ Rate limiter created from config")
+    else:
+        print("⚠️ Rate limiter not created (check config)")
+
+def main():
+    """Run all v2.0 feature tests."""
+    print("\n" + "="*50)
+    print("Testing v2.0 Features After Refactoring")
+    print("="*50 + "\n")
+    
+    # Test foundation
+    print("1. Testing Token Redaction...")
+    test_token_redaction()
+    print()
+    
+    print("2. Testing HelpfulError...")
+    test_helpful_error()
+    print()
+    
+    print("3. Testing Intelligent Save...")
+    test_intelligent_save()
+    print()
+    
+    print("4. Testing Rate Limiter...")
+    test_rate_limiter()
+    print()
+    
+    print("5. Testing Circuit Breaker...")
+    test_circuit_breaker()
+    print()
+    
+    # Test with config
+    try:
+        config = parse_args_and_load_config("V2 Feature Test")
+        print("6. Testing API Creation...")
+        test_api_creation(config)
+    except Exception as e:
+        print(f"⚠️ Skipping config-based tests: {e}")
+    
+    print("\n" + "="*50)
+    print("✅ All v2.0 feature tests completed!")
+    print("Check logs/app_*.log for redaction verification")
+    print("="*50)
+
+if __name__ == "__main__":
+    main()
+    </create_test_script>
+    
+    <run_instructions>
+      # Run without config (tests basic features)
+      python src/test_v2_features.py
+      
+      # Or with config (tests everything)
+      python src/test_v2_features.py test test
+    </run_instructions>
+  </validation_suite>
+
+  <documentation_checklist>
+    <title>Documentation Updates Required</title>
+    
+    <checklist>
+      ☐ Update schemas/org-env-config-schema.json if config changed
+      ☐ Add new ADR if architectural decisions made
+      ☐ Update in-depth-readme.md with new patterns
+      ☐ Update README.md version number to v2.0.0
+      ☐ Update AI prompt XML with new helper signatures
+      ☐ Create migration guide if breaking changes
+      ☐ Update example scripts to use new features
+    </checklist>
+    
+    <version_update>
+      If all v2.0 features added successfully:
+      - Tag as v2.0.0 in git
+      - Update pyproject.toml version
+      - Create release notes
+    </version_update>
+  </documentation_checklist>
+
+  <completion_report>
+    <generate>
+      ## 🎉 Refactoring Complete!
+      
+      ### Summary
+      - **Files Updated**: X/14
+      - **New Features Added**: Y/6
+      - **Tests Passed**: Z/6
+      - **Documentation Updated**: ✅
+      
+      ### New v2.0 Features
+      ✅ Token redaction in logs (security)
+      ✅ HelpfulError pattern (UX)
+      ✅ Rate limiting (resilience)
+      ✅ Circuit breaker (resilience)
+      ✅ Intelligent save() (convenience)
+      ✅ Async operation support (functionality)
+      
+      ### Next Steps
+      1. Run full integration tests
+      2. Update production scripts to use new features
+      3. Enable rate limiting in production config
+      4. Train team on HelpfulError pattern
+      
+      ### Config Changes Needed
+      Add to your config files:
+      ```json
+      {
+        "script-behavior": {
+          "enable-rate-limiting": true,
+          "rate-limit-per-second": 10,
+          "enable-circuit-breaker": true,
+          "circuit-breaker-threshold": 5
+        }
+      }
+      ```
+    </generate>
+  </completion_report>
+</txo_refactoring_prompt>
