@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<txo_python_template version="3.1">
+  <metadata>
+    <purpose>Guide AI assistants to generate production-ready code following TXO v2.1 patterns</purpose>
+    <last_updated>2025-01-15</last_updated>
+    <python_version>3.10+ required, 3.13+ recommended</python_version>
+    <template_version>2.1.0</template_version>
+    <key_features>
+      <feature>Automatic token redaction in logs</feature>
+      <feature>Rate limiting and circuit breakers</feature>
+      <feature>Async operation support (202 Accepted)</feature>
+      <feature>HelpfulError pattern for user guidance</feature>
+      <feature>Intelligent save with type detection</feature>
+      <feature>Hard-fail configuration philosophy</feature>
+    </key_features>
+  </metadata>
+
+  <ai_behavior>
+    <instruction priority="critical">
+      When user asks for help, FIRST understand the requirement:
+      - What API/service are you integrating with?
+      - What's the data source and format?
+      - What's the expected output?
+      - Is authentication required? (OAuth, API key, none?)
+      - Will this run once or repeatedly?
+      - What error scenarios should be handled?
+    </instruction>
+    
+    <instruction priority="critical">
+      CONFIGURATION CHANGES require IMMEDIATE schema update:
+      1. ANY config structure change → Update schemas/org-env-config-schema.json
+      2. Secrets → Put in {org_id}-{env_type}-config-secrets.json (gitignored)
+      3. Use kebab-case: "my-new-setting" not "my_new_setting"
+      4. Document purpose in schema descriptions
+      5. Set sensible defaults and constraints
+    </instruction>
+    
+    <instruction priority="critical">
+      ENFORCE v2.1 patterns strictly:
+      - NEVER use print() → always logger
+      - NEVER build paths manually → use get_path()
+      - NEVER soft-fail config → config['key'] not config.get('key')
+      - NEVER pass individual params → pass entire config dict
+      - ALWAYS use HelpfulError for user-facing errors
+      - ALWAYS include type hints and docstrings
+    </instruction>
+  </ai_behavior>
+
+  <critical_patterns>
+    <pattern name="script_structure" enforcement="mandatory">
+      ```python
+      # src/script_name.py  ← Path comment ALWAYS first line
+      """Docstring with purpose and usage."""
+      
+      from typing import Dict, Any
+      from datetime import datetime, timezone
+      
+      from utils.logger import setup_logger
+      from utils.script_runner import parse_args_and_load_config
+      from utils.load_n_save import TxoDataHandler
+      from utils.exceptions import HelpfulError
+      
+      logger = setup_logger()  # Before ANY other code
+      data_handler = TxoDataHandler()
+      
+      def main():
+          config = parse_args_and_load_config("Description")
+          # Automatically injected: _org_id, _env_type, _token
+          logger.info(f"Starting for {config['_org_id']}-{config['_env_type']}")
+      ```
+    </pattern>
+    
+    <pattern name="hard_fail_config" enforcement="mandatory">
+      ```python
+      # REQUIRED config - hard fail if missing
+      api_url = config['global']['api-base-url']  # KeyError = good
+      tenant = config['global']['tenant-id']      # Fail fast
+      
+      # NEVER soft fail on config
+      # BAD: url = config.get('global', {}).get('api-base-url', 'default')
+      
+      # Optional API responses use get()
+      email = api_response.get('email')  # None if missing = OK
+      ```
+    </pattern>
+    
+    <pattern name="helpful_error" enforcement="mandatory">
+      ```python
+      if not condition:
+          raise HelpfulError(
+              what_went_wrong="Specific problem description",
+              how_to_fix="Clear action to resolve",
+              example="Concrete example or command"
+          )
+      
+      # Output format:
+      # ❌ Problem: Specific problem description
+      # ✅ Solution: Clear action to resolve
+      # 📝 Example: Concrete example or command
+      ```
+    </pattern>
+    
+    <pattern name="output_naming" enforcement="mandatory">
+      ```python
+      utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+      filename = f"{config['_org_id']}-{config['_env_type']}-report_{utc}.xlsx"
+      # Creates: acme-prod-report_2025-01-15T1430Z.xlsx
+      ```
+    </pattern>
+  </critical_patterns>
+
+  <v2_1_features>
+    <feature name="token_redaction">
+      Logger automatically redacts ALL sensitive patterns:
+      - Bearer tokens → [REDACTED]
+      - JWT tokens → [REDACTED_JWT]  
+      - Passwords in JSON → [REDACTED]
+      - Long API keys (40+ chars) → [REDACTED_TOKEN]
+      - Client secrets → [REDACTED]
+      
+      Still NEVER intentionally log tokens!
+    </feature>
+    
+    <feature name="rate_limiting">
+      Enabled in config (nested structure):
+      ```json
+      "rate-limiting": {
+        "enabled": true,
+        "calls-per-second": 10,
+        "burst-size": 1
+      }
+      ```
+      Applied automatically to all API calls.
+    </feature>
+    
+    <feature name="circuit_breaker">
+      Prevents cascade failures:
+      ```json
+      "circuit-breaker": {
+        "enabled": true,
+        "failure-threshold": 5,
+        "timeout-seconds": 60
+      }
+      ```
+      Opens after threshold failures, auto-closes after timeout.
+    </feature>
+    
+    <feature name="async_operations">
+      202 Accepted handled transparently:
+      ```python
+      result = api.post("/long-operation", data)
+      # Automatically polls Location header
+      # Respects Retry-After header
+      # Returns final result when complete
+      ```
+    </feature>
+    
+    <feature name="intelligent_save">
+      Auto-detects type from data + extension:
+      ```python
+      # All use same method - just change extension!
+      data_handler.save(dict_data, "output", "data.json")
+      data_handler.save(dataframe, "output", "data.csv")
+      data_handler.save(dataframe, "output", "data.xlsx")
+      data_handler.save("text", "output", "report.txt")
+      ```
+    </feature>
+  </v2_1_features>
+
+  <configuration_structure>
+    <schema_requirement priority="critical">
+      ⚠️ ANY configuration change REQUIRES updating schemas/org-env-config-schema.json
+      The schema validates ALL configuration files - keep them in sync!
+    </schema_requirement>
+    
+    <main_config>
+      File: config/{org_id}-{env_type}-config.json
+      ```json
+      {
+        "global": {
+          "api-base-url": "https://api.example.com",
+          "api-version": "v2",
+          "tenant-id": "azure-tenant-guid",
+          "client-id": "oauth-client-id",
+          "oauth-scope": "https://api/.default"
+        },
+        "script-behavior": {
+          "api-delay-seconds": 1,
+          "api-timeouts": {
+            "rest-timeout-seconds": 60,
+            "async-max-wait": 300,
+            "async-poll-interval": 5
+          },
+          "retry-strategy": {
+            "max-retries": 3,
+            "backoff-factor": 2.0
+          },
+          "jitter": {
+            "min-factor": 0.8,
+            "max-factor": 1.2
+          },
+          "rate-limiting": {
+            "enabled": true,
+            "calls-per-second": 10,
+            "burst-size": 1
+          },
+          "circuit-breaker": {
+            "enabled": true,
+            "failure-threshold": 5,
+            "timeout-seconds": 60
+          },
+          "batch-handling": {
+            "read-batch-size": 100,
+            "update-batch-size": 50
+          }
+        }
+      }
+      ```
+    </main_config>
+    
+    <secrets_config>
+      File: config/{org_id}-{env_type}-config-secrets.json (GITIGNORED)
+      ```json
+      {
+        "client-secret": "oauth-secret",
+        "az-token": "Bearer eyJ...",
+        "api-key": "sk-..."
+      }
+      ```
+      Injected with underscore: config['_client_secret'], config['_az_token']
+    </secrets_config>
+  </configuration_structure>
+
+  <helper_modules>
+    <module name="utils.script_runner">
+      parse_args_and_load_config(description, require_token=True, validate_config=True)
+      → Returns config with _org_id, _env_type, _token injected
+      → Validates against JSON schema
+      → Handles OAuth automatically
+    </module>
+    
+    <module name="utils.logger">
+      setup_logger(org_id=None) → TxoLogger
+      → Logs INFO to console, DEBUG to file
+      → Automatically redacts tokens/secrets
+      → Thread-safe singleton
+    </module>
+    
+    <module name="utils.load_n_save">
+      TxoDataHandler()
+      → save(data, directory, filename, **kwargs) - INTELLIGENT TYPE DETECTION
+      → load_json(directory, filename)
+      → load_excel(directory, filename)
+      → exists(directory, filename)
+    </module>
+    
+    <module name="utils.api_factory">
+      create_rest_api(config, require_auth=True) → TxoRestAPI
+      → Includes rate limiting, circuit breaker
+      → Handles 202 Accepted automatically
+      → Session pooling, automatic retry
+      
+      ApiManager(config) - Context manager for cleanup
+    </module>
+    
+    <module name="utils.exceptions">
+      HelpfulError(what_went_wrong, how_to_fix, example=None)
+      ApiOperationError, ApiTimeoutError, ApiAuthenticationError
+      ApiRateLimitError(retry_after=seconds)
+      ConfigurationError, ValidationError, FileOperationError
+    </module>
+    
+    <module name="utils.api_common">
+      RateLimiter(calls_per_second=10, burst_size=1)
+      CircuitBreaker(failure_threshold=5, timeout=60)
+      apply_jitter(delay, config)
+      manual_retry(func, max_retries=3, backoff=2.0)
+    </module>
+    
+    <module name="utils.path_helpers">
+      get_path(category, filename) → Path
+      Categories: 'config', 'data', 'output', 'logs', 'tmp', 'schemas'
+    </module>
+  </helper_modules>
+
+  <common_mistakes>
+    <mistake>
+      Using soft-fail on config:
+      ```python
+      # WRONG
+      url = config.get('global', {}).get('api-url', 'default')
+      
+      # RIGHT
+      url = config['global']['api-url']  # Fail if missing
+      ```
+    </mistake>
+    
+    <mistake>
+      Not updating schema when adding config:
+      ```python
+      # WRONG: Add to config.json only
+      
+      # RIGHT: Update BOTH files
+      # 1. config/{org}-{env}-config.json
+      # 2. schemas/org-env-config-schema.json
+      ```
+    </mistake>
+    
+    <mistake>
+      Using print instead of logger:
+      ```python
+      # WRONG
+      print("Processing started")
+      
+      # RIGHT  
+      logger.info("Processing started")
+      ```
+    </mistake>
+    
+    <mistake>
+      Building paths manually:
+      ```python
+      # WRONG
+      path = "config/settings.json"
+      path = Path("config") / "settings.json"
+      
+      # RIGHT
+      path = get_path("config", "settings.json")
+      ```
+    </mistake>
+    
+    <mistake>
+      Forgetting UTC timestamp in output:
+      ```python
+      # WRONG
+      filename = f"{org_id}-{env_type}-report.xlsx"
+      
+      # RIGHT
+      utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+      filename = f"{org_id}-{env_type}-report_{utc}.xlsx"
+      ```
+    </mistake>
+  </common_mistakes>
+
+  <best_practices>
+    <practice>Every function needs type hints and docstring</practice>
+    <practice>Use logger for ALL output, never print()</practice>
+    <practice>Handle errors with specific exceptions</practice>
+    <practice>Validate config keys exist before accessing (hard fail)</practice>
+    <practice>Use HelpfulError for user-facing errors</practice>
+    <practice>Pass entire config dict to functions</practice>
+    <practice>Use path_helpers for all file paths</practice>
+    <practice>Include UTC timestamp in output filenames</practice>
+    <practice>Update JSON schema when adding config keys</practice>
+    <practice>Put secrets in separate gitignored file</practice>
+    <practice>Use context managers for resource cleanup</practice>
+    <practice>Let save() detect type automatically from extension</practice>
+  </best_practices>
+
+  <reminder_triggers>
+    <on_config_change>
+      User modifies configuration → Remind:
+      "📌 Since you're changing config structure:
+      1. Update schemas/org-env-config-schema.json immediately
+      2. Put secrets in {org_id}-{env_type}-config-secrets.json
+      3. Use kebab-case for all keys
+      4. Use nested structure for rate-limiting and circuit-breaker"
+    </on_config_change>
+    
+    <on_save_confusion>
+      User tries save_json() or asks about save methods → Clarify:
+      "💡 Just use data_handler.save() - it auto-detects type!
+      - .json → saves as JSON (handles Decimal)
+      - .csv → saves DataFrame as CSV
+      - .xlsx → saves DataFrame as Excel
+      - .txt → saves string as text"
+    </on_save_confusion>
+    
+    <on_soft_fail>
+      User uses config.get() → Correct:
+      "⚠️ Use hard-fail for config access:
+      config['global']['api-url'] not config.get('global', {}).get('api-url')
+      Config should fail fast if misconfigured!"
+    </on_soft_fail>
+  </reminder_triggers>
+</txo_python_template>

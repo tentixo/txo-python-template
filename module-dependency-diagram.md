@@ -1,60 +1,80 @@
 # Module Dependency Diagram
 
-## Helper Module Dependencies
+## Architecture Overview
+
+The TXO Python Template v2.1 follows a layered architecture with clear dependency rules. Understanding these dependencies is crucial for maintenance and refactoring.
+
+## Dependency Layers
+
+### Layer 1: Foundation (No Dependencies)
+- `exceptions.py` - Custom exception hierarchy
+- `path_helpers.py` - Path management utilities
+
+### Layer 2: Core Services 
+- `logger.py` - Depends on: path_helpers
+- `api_common.py` - Depends on: logger
+
+### Layer 3: Data & I/O
+- `load_n_save.py` - Depends on: exceptions, logger, path_helpers
+
+### Layer 4: API Implementation
+- `oauth_helpers.py` - Depends on: logger, exceptions
+- `rest_api_helpers.py` - Depends on: logger, exceptions, api_common
+- `url_helpers.py` - Depends on: logger
+
+### Layer 5: Orchestration
+- `config_loader.py` - Depends on: logger, path_helpers, load_n_save, exceptions
+- `api_factory.py` - Depends on: logger, rest_api_helpers, api_common
+- `script_runner.py` - Depends on: config_loader, oauth_helpers, logger, exceptions
+
+### Layer 6: User Scripts
+- `src/*.py` - Depends on: script_runner, api_factory, load_n_save, exceptions, logger
+
+## Visual Dependency Graph
 
 ```mermaid
 graph TD
-    %% Dark theme color palette with white text
-    classDef ORG    fill:#0D5ED7,stroke:#444,stroke-width:4px,color:#fff
-    classDef I      fill:#237046,stroke:#444,stroke-width:4px,color:#fff
-    classDef P      fill:#870000,stroke:#444,stroke-width:4px,color:#fff
-    classDef R      fill:#4B0082,stroke:#444,stroke-width:4px,color:#fff
-    classDef O      fill:#A34700,stroke:#444,stroke-width:4px,color:#fff
-    classDef C      fill:#2F4F4F,stroke:#444,stroke-width:2px,color:#fff
-    classDef extra1 fill:#006C6C,stroke:#444,stroke-width:4px,color:#fff
-    classDef extra2 fill:#556B2F,stroke:#444,stroke-width:4px,color:#fff
-    classDef extra3 fill:#8B008B,stroke:#444,stroke-width:4px,color:#fff
-    classDef extra4 fill:#696969,stroke:#444,stroke-width:4px,color:#fff
+    %% Color scheme for different layers
+    classDef foundation fill:#0D5ED7,stroke:#444,stroke-width:4px,color:#fff
+    classDef core fill:#237046,stroke:#444,stroke-width:4px,color:#fff
+    classDef data fill:#870000,stroke:#444,stroke-width:4px,color:#fff
+    classDef api fill:#A34700,stroke:#444,stroke-width:4px,color:#fff
+    classDef orchestration fill:#4B0082,stroke:#444,stroke-width:4px,color:#fff
+    classDef user fill:#2F4F4F,stroke:#444,stroke-width:2px,color:#fff
 
-    %% Foundation Layer (ORG - Blue)
-    exceptions[exceptions.py]:::ORG
-    logger[logger.py]:::ORG
-    path_helpers[path_helpers.py]:::ORG
+    %% Foundation Layer (Blue)
+    exceptions[exceptions.py]:::foundation
+    path_helpers[path_helpers.py]:::foundation
     
-    %% Common Utilities (I - Green)
-    api_common[api_common.py]:::I
+    %% Core Services (Green)
+    logger[logger.py]:::core
+    api_common[api_common.py]:::core
     
-    %% Data Layer (P - Red)
-    load_n_save[load_n_save.py]:::P
+    %% Data Layer (Red)
+    load_n_save[load_n_save.py]:::data
     
-    %% API Implementation (O - Brown/Orange)
-    rest_api_helpers[rest_api_helpers.py]:::O
-    soap_api_helpers[soap_api_helpers.py]:::O
-    oauth_helpers[oauth_helpers.py]:::O
+    %% API Implementation (Orange)
+    rest_api_helpers[rest_api_helpers.py]:::api
+    oauth_helpers[oauth_helpers.py]:::api
+    url_helpers[url_helpers.py]:::api
     
-    %% Orchestration (R - Purple)
-    api_factory[api_factory.py]:::R
-    config_loader[config_loader.py]:::R
-    script_runner[script_runner.py]:::R
+    %% Orchestration (Purple)
+    config_loader[config_loader.py]:::orchestration
+    api_factory[api_factory.py]:::orchestration
+    script_runner[script_runner.py]:::orchestration
+    concurrency[concurrency.py]:::orchestration
     
-    %% URL Utilities (extra1 - Teal)
-    url_helpers[url_helpers.py]:::extra1
-    url_builders[url_builders.py]:::extra1
-    
-    %% Concurrency (extra2 - Olive)
-    concurrency[concurrency.py]:::extra2
-    
-    %% User Scripts (C - Dark Gray/Teal)
-    user_script[src/*.py]:::C
+    %% User Scripts (Gray)
+    user_script[src/*.py]:::user
     
     %% Dependencies
     logger --> path_helpers
     
     api_common --> logger
     
+    load_n_save --> exceptions
     load_n_save --> logger
     load_n_save --> path_helpers
-    load_n_save --> exceptions
     
     oauth_helpers --> logger
     oauth_helpers --> exceptions
@@ -63,30 +83,23 @@ graph TD
     rest_api_helpers --> exceptions
     rest_api_helpers --> api_common
     
-    soap_api_helpers --> logger
-    soap_api_helpers --> exceptions
-    
     url_helpers --> logger
-    
-    url_builders --> logger
-    url_builders --> config_loader
     
     config_loader --> logger
     config_loader --> path_helpers
     config_loader --> load_n_save
+    config_loader --> exceptions
     
     api_factory --> logger
     api_factory --> rest_api_helpers
-    api_factory --> soap_api_helpers
     api_factory --> api_common
     
     concurrency --> logger
     concurrency --> exceptions
     
-    script_runner --> logger
     script_runner --> config_loader
     script_runner --> oauth_helpers
-    script_runner --> path_helpers
+    script_runner --> logger
     script_runner --> exceptions
     
     user_script --> script_runner
@@ -94,134 +107,340 @@ graph TD
     user_script --> load_n_save
     user_script --> exceptions
     user_script --> logger
+    user_script --> concurrency
 
-    %% Add legend
+    %% Legend
     subgraph Legend
-        L1[Foundation - Blue]:::ORG
-        L2[Common - Green]:::I
-        L3[Data - Red]:::P
-        L4[API - Orange]:::O
-        L5[Orchestration - Purple]:::R
-        L6[URL Utils - Teal]:::extra1
-        L7[Concurrency - Olive]:::extra2
-        L8[User Scripts - Gray]:::C
+        L1[Foundation - No deps]:::foundation
+        L2[Core - Basic deps]:::core
+        L3[Data - I/O ops]:::data
+        L4[API - External]:::api
+        L5[Orchestration]:::orchestration
+        L6[User Scripts]:::user
     end
 ```
 
-## Helper Module Flow
+## Common Operation Sequences
+
+### Script Initialization Sequence
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant ScriptRunner
-    participant Logger
-    participant ConfigLoader
-    participant OAuth
+    participant Script as src/script.py
+    participant Runner as script_runner
+    participant Config as config_loader
+    participant OAuth as oauth_helpers
+    participant Logger as logger
 
-    User->>ScriptRunner: python script.py org_id env_type
-    ScriptRunner->>ScriptRunner: Parse args (org_id, env_type)
-    ScriptRunner->>Logger: setup_logger(org_id)
-    Note over Logger: Logger now has context
-    ScriptRunner->>ConfigLoader: load_config(org_id, env_type)
-    ConfigLoader->>ConfigLoader: Load main config
-    ConfigLoader->>ConfigLoader: Load secrets (flat)
-    ConfigLoader->>ConfigLoader: Inject secrets with _prefix
-    ConfigLoader-->>ScriptRunner: Return merged config
-    ScriptRunner->>ScriptRunner: Inject _org_id, _env_type
-    ScriptRunner->>OAuth: Get token (using _client_secret)
-    ScriptRunner->>ScriptRunner: Inject _token
-    ScriptRunner-->>User: Return complete config
+    User->>Script: python script.py org env
+    Script->>Runner: parse_args_and_load_config()
+    Runner->>Logger: setup_logger(org_id)
+    Runner->>Config: load_config(org, env)
+    Config->>Config: load JSON files
+    Config->>Config: validate schema
+    Config->>Config: inject secrets
+    Config-->>Runner: config dict
+    
+    alt Authentication Required
+        Runner->>OAuth: get_client_credentials_token()
+        OAuth->>OAuth: check cache
+        alt Token Cached
+            OAuth-->>Runner: cached token
+        else Token Expired
+            OAuth->>OAuth: request new token
+            OAuth-->>Runner: new token
+        end
+        Runner->>Config: inject _token
+    end
+    
+    Runner-->>Script: config with _org_id, _env_type, _token
+    Script->>Script: main() executes
 ```
 
-## Dependency Levels
+### API Call with Resilience Features
 
-### Level 0 - No Dependencies
-- **exceptions.py**: Base exception classes (no utils dependencies)
+```mermaid
+sequenceDiagram
+    participant Script as src/script.py
+    participant Factory as api_factory
+    participant API as rest_api_helpers
+    participant RateLimiter
+    participant CircuitBreaker
+    participant Session
+    participant External as External API
 
-### Level 1 - Foundation
-- **logger.py**: Depends on path_helpers
-- **path_helpers.py**: No utils dependencies (potential circular dependency with logger needs investigation)
+    Script->>Factory: create_rest_api(config)
+    Factory->>Factory: parse config
+    Factory->>RateLimiter: create if enabled
+    Factory->>CircuitBreaker: create if enabled
+    Factory->>API: TxoRestAPI(limiter, breaker)
+    Factory-->>Script: api instance
 
-### Level 2 - Common Utilities
-- **api_common.py**: Depends on logger
+    Script->>API: api.get(url)
+    
+    API->>CircuitBreaker: is_open()?
+    alt Circuit Open
+        CircuitBreaker-->>API: true
+        API-->>Script: ApiOperationError
+    else Circuit Closed
+        CircuitBreaker-->>API: false
+        API->>RateLimiter: wait_if_needed()
+        RateLimiter->>RateLimiter: throttle
+        
+        API->>Session: request(url)
+        Session->>External: HTTP GET
+        
+        alt Success (200)
+            External-->>Session: response
+            Session-->>API: response
+            API->>CircuitBreaker: record_success()
+            API-->>Script: data
+        else Rate Limited (429)
+            External-->>Session: 429 + Retry-After
+            Session-->>API: 429 response
+            API->>API: exponential backoff
+            API->>Session: retry request
+        else Server Error (500)
+            External-->>Session: 500 error
+            Session-->>API: error
+            API->>CircuitBreaker: record_failure()
+            API->>API: retry with backoff
+        else Async Operation (202)
+            External-->>Session: 202 + Location
+            Session-->>API: 202 response
+            loop Poll until complete
+                API->>API: wait(Retry-After)
+                API->>Session: GET Location
+                Session->>External: check status
+                External-->>Session: status
+            end
+            API-->>Script: final result
+        end
+    end
+```
 
-### Level 3 - Data & Authentication
-- **load_n_save.py**: Depends on logger, path_helpers, exceptions
-- **oauth_helpers.py**: Depends on logger, exceptions
-- **config_loader.py**: Depends on logger, path_helpers, load_n_save
-- **url_helpers.py**: Depends on logger
+### File Save with Type Detection
 
-### Level 4 - API Implementation & Utilities
-- **rest_api_helpers.py**: Depends on logger, exceptions, api_common
-- **soap_api_helpers.py**: Depends on logger, exceptions
-- **url_builders.py**: Depends on logger, config_loader
-- **concurrency.py**: Depends on logger, exceptions
+```mermaid
+sequenceDiagram
+    participant Script as src/script.py
+    participant DataHandler as load_n_save
+    participant PathHelper as path_helpers
+    participant FileSystem as File System
 
-### Level 5 - Orchestration
-- **api_factory.py**: Depends on logger, rest_api_helpers, soap_api_helpers, api_common
-
-### Level 6 - Script Runner
-- **script_runner.py**: Depends on logger, config_loader, oauth_helpers, path_helpers, exceptions
-
-### Level 7 - User Scripts
-- **src/*.py**: Typically depend on script_runner, api_factory, load_n_save, exceptions, logger
-
-## Potential Issues Detected
-
-### ⚠️ Circular Dependency Risk
-- **logger.py** imports **path_helpers** (for get_path)
-- If **path_helpers** imports **logger**, this creates a circular dependency
-- **Solution**: path_helpers should not import logger, or use lazy import
+    Script->>DataHandler: save(data, "output", "file.json")
+    DataHandler->>DataHandler: detect type from data
+    
+    alt DataFrame detected
+        DataHandler->>DataHandler: check extension
+        alt .csv extension
+            DataHandler->>DataFrame: to_csv()
+        else .xlsx extension
+            DataHandler->>DataFrame: to_excel()
+        end
+    else Dict/List detected
+        DataHandler->>DataHandler: DecimalEncoder
+        DataHandler->>DataHandler: json.dumps()
+    else String detected
+        DataHandler->>DataHandler: write as text
+    end
+    
+    DataHandler->>PathHelper: get_path("output", "file.json")
+    PathHelper->>PathHelper: resolve path
+    PathHelper-->>DataHandler: Path object
+    
+    DataHandler->>FileSystem: write file
+    FileSystem-->>DataHandler: success
+    DataHandler-->>Script: Path to saved file
+```
 
 ## Refactoring Order
 
-Based on dependencies, update in this order:
+When updating the template, follow this dependency order to avoid breaking changes:
 
-1. **exceptions.py** (no dependencies)
-2. **path_helpers.py** (check for circular dependency first)
-3. **logger.py**
-4. **api_common.py**
-5. **load_n_save.py**, **oauth_helpers.py**, **url_helpers.py**
-6. **config_loader.py**
-7. **rest_api_helpers.py**, **soap_api_helpers.py**, **concurrency.py**
-8. **url_builders.py**
-9. **api_factory.py**
-10. **script_runner.py**
+1. **Foundation** (no dependencies)
+   - exceptions.py
+   - path_helpers.py
 
-## Import Graph for Quick Reference
+2. **Core Services** (minimal dependencies)
+   - logger.py (depends on path_helpers)
+   - api_common.py (depends on logger)
+
+3. **Data Layer** (foundation + core)
+   - load_n_save.py
+
+4. **API Implementation** (all previous)
+   - oauth_helpers.py
+   - rest_api_helpers.py
+   - url_helpers.py
+
+5. **Orchestration** (all previous)
+   - config_loader.py
+   - api_factory.py
+   - concurrency.py
+   - script_runner.py
+
+6. **User Scripts** (everything)
+   - Update last after all utilities are working
+
+## Key Design Principles
+
+### 1. Unidirectional Dependencies
+- Lower layers never depend on higher layers
+- Foundation modules have zero dependencies
+- User scripts can use everything
+
+### 2. Single Responsibility
+Each module has one clear purpose:
+- `logger.py` - Only logging
+- `path_helpers.py` - Only path management
+- `api_factory.py` - Only API creation
+
+### 3. Dependency Injection
+Configuration and dependencies are injected, not hardcoded:
+```python
+# Good - injected
+def process(config: Dict[str, Any]):
+    api = create_rest_api(config)
+
+# Bad - hardcoded
+def process():
+    api = create_rest_api(load_my_config())
+```
+
+### 4. Fail Fast Philosophy
+All required configuration uses hard-fail:
+```python
+# Good - fails immediately if missing
+url = config['global']['api-url']
+
+# Bad - silent failure
+url = config.get('global', {}).get('api-url', 'default')
+```
+
+## Testing Dependencies
+
+To test a module in isolation, you only need its dependencies:
+
+```bash
+# Test exceptions.py - no dependencies needed
+python -c "from utils.exceptions import HelpfulError; raise HelpfulError('test', 'fix', 'example')"
+
+# Test logger.py - needs path_helpers
+python -c "from utils.logger import setup_logger; logger = setup_logger(); logger.info('test')"
+
+# Test api_factory.py - needs many dependencies
+# Better to use test_v2_features.py which tests everything
+```
+
+## Common Circular Dependency Issues
+
+### Problem Areas to Avoid
+
+1. **Config in Logger**
+   - Don't make logger depend on config_loader
+   - Logger should work with minimal setup
+
+2. **API in Exceptions**
+   - Exceptions shouldn't know about API details
+   - Keep exceptions generic
+
+3. **Script Runner in Helpers**
+   - Helper modules shouldn't import script_runner
+   - Keep helpers independent
+
+### Signs of Circular Dependencies
+
+- ImportError at module level
+- Functions that import inside themselves
+- Modules that import each other
+
+### Resolution Strategy
+
+1. Move shared code to a lower layer
+2. Use dependency injection instead of imports
+3. Create a new intermediate module
+4. Use type hints with string literals for forward references
+
+## Performance Considerations
+
+### Import Cost
+Modules are imported in order of dependency. Heavy modules are loaded lazily:
 
 ```python
-# Foundation (no imports from utils)
-exceptions.py → None
-
-# Foundation with dependencies
-path_helpers.py → (check for logger import - potential circular)
-logger.py → path_helpers
-
-# Common utilities
-api_common.py → logger
-
-# Data layer
-load_n_save.py → logger, path_helpers, exceptions
-
-# Authentication
-oauth_helpers.py → logger, exceptions
-
-# API implementations
-rest_api_helpers.py → logger, exceptions, api_common
-soap_api_helpers.py → logger, exceptions
-
-# URL utilities
-url_helpers.py → logger
-url_builders.py → logger, config_loader
-
-# Configuration
-config_loader.py → logger, path_helpers, load_n_save
-
-# Orchestration
-api_factory.py → logger, rest_api_helpers, soap_api_helpers, api_common
-concurrency.py → logger, exceptions
-
-# Top level
-script_runner.py → logger, config_loader, oauth_helpers, path_helpers, exceptions
+# Good - lazy import
+def process_excel():
+    import pandas as pd  # Only loaded when needed
+    
+# Bad - always imported
+import pandas as pd  # Loaded even if not used
 ```
+
+### Singleton Patterns
+Several modules use singleton patterns for efficiency:
+- `logger.py` - Single logger instance
+- `config_loader.py` - Cached configuration
+- `api_factory.py` - Optional API instance caching
+
+### Connection Pooling
+API modules reuse connections:
+- `rest_api_helpers.py` - SessionManager with LRU cache
+- Maximum 50 sessions cached
+- Thread-safe implementation
+
+## Version Compatibility
+
+### v2.1 Breaking Changes
+- Config structure is nested (rate-limiting, circuit-breaker as objects)
+- All config access uses hard-fail
+- save_json() → save() with type detection
+- MinimalRestAPI → TxoRestAPI
+
+### Backward Compatibility
+Where possible, v2.1 maintains compatibility:
+- Old flat config can be migrated
+- Helper functions still work
+- Core patterns unchanged
+
+## Troubleshooting
+
+### Module Not Found
+```python
+ImportError: cannot import name 'X' from 'utils.Y'
+```
+- Check if module exists
+- Verify no typos in import
+- Ensure dependencies are installed
+
+### Circular Import
+```python
+ImportError: cannot import name 'X' from partially initialized module
+```
+- Check dependency graph above
+- Move shared code to lower layer
+- Use lazy imports
+
+### Type Errors
+```python
+TypeError: X() takes no arguments
+```
+- Check if using v2.1 syntax
+- Verify config structure matches
+- Update to new class names
+
+## Future Architecture Considerations
+
+### Potential Improvements
+1. **Plugin System** - Dynamic helper loading
+2. **Async Support** - asyncio for I/O operations
+3. **Caching Layer** - Redis/memcached integration
+4. **Message Queue** - For long-running operations
+5. **Metrics Collection** - Performance monitoring
+
+### Maintaining the Architecture
+1. Keep dependencies unidirectional
+2. Document any new modules in this diagram
+3. Add tests for new dependencies
+4. Update refactoring order when adding modules
+5. Consider impact on all layers when changing interfaces

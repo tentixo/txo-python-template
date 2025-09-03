@@ -1,346 +1,399 @@
 # txo-python-template
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
+![Version](https://img.shields.io/badge/version-2.1.0-green)
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![PyCharm](https://img.shields.io/badge/IDE-PyCharm-green)
 
-**Tentixo's Python Template** - Production-ready framework for REST/OData API automation and data processing scripts with built-in best practices and error handling.
+**Tentixo's Python Template v2.1** - Production-ready framework for REST/OData API automation with built-in resilience patterns, automatic error handling, and enterprise-grade security features.
 
-> **Note**: This template is for REST/OData APIs only. Contact Morre if you need SOAP support.
+> **⚠️ Important**: Any changes to configuration structure MUST be reflected in `schemas/org-env-config-schema.json`. The schema validates all configuration files.
 
-## Quick Start
+## What's New in v2.1.0
 
-### Step 1: Create Your Repository
+- 🔒 **Automatic Token Redaction** - Logs never expose sensitive data
+- ⚡ **Rate Limiting** - Prevent API bans with configurable throttling
+- 🔄 **Circuit Breakers** - Stop cascade failures automatically
+- 📊 **Async Operation Support** - Handle 202 Accepted responses transparently
+- 💡 **HelpfulError Pattern** - User-friendly error messages with solutions
+- 🎯 **Intelligent Save** - Auto-detects file type from data and extension
+- 🔧 **Hard-Fail Philosophy** - No silent failures on configuration errors
 
-**On GitHub:**
-1. Click the green **"Use this template"** button above
-2. Select **"Create a new repository"**
-3. Name your repository (e.g., `my-api-integration`)
-4. Clone your new repository locally
+## Quick Start - 5 Minutes to Success
 
-**Or clone directly:**
+### Step 1: Clone and Setup
+
 ```bash
+# Clone the template
 git clone https://github.com/tentixo/txo-python-template.git
 cd txo-python-template
-```
 
-### Step 2: Setup Development Environment
-
-This template is optimized for **PyCharm** - we recommend using it for the best experience.
-
-**PyCharm Setup (Recommended):**
-1. Open the project in PyCharm
-2. PyCharm will automatically detect `pyproject.toml`
-3. When prompted, let PyCharm create a virtual environment and install dependencies
-4. If not prompted: Go to Settings → Project → Python Interpreter → Add Interpreter
-
-**Manual Setup with uv:**
-```bash
-# Install uv if you haven't already
+# Install dependencies (PyCharm will do this automatically)
 pip install uv
-
-# Install dependencies
 uv pip install -r pyproject.toml
 ```
 
-### Step 3: Choose Your Organization and Environment
+### Step 2: Run the Try-Me Script
 
-The template uses two key parameters for all scripts:
-- **`org_id`**: Organization identifier (e.g., "acme", "demo", "mycompany")
-- **`env_type`**: Environment type (e.g., "test", "prod", "dev")
-
-These parameters ensure:
-- Configuration files are properly separated: `acme-test-config.json` vs `acme-prod-config.json`
-- Output files are clearly identified: `acme-test-report_2025-01-15.xlsx`
-- Multiple organizations can use the same codebase
-
-### Step 4: Run the Test Script
-
-**Using PyCharm (Recommended):**
-1. Right-click on `test_github_api.py` in the `src/` folder
-2. Select **More Run/Debug → Modify Run Configuration...**
-3. In **Script parameters** field, enter your chosen org_id and env_type (e.g., `demo test`)
-4. Click **OK**
-5. Click the green **Run** button (▶) in the top toolbar
-
-**Using Command Line:**
 ```bash
-# Run with your chosen org_id and env_type
-python src/test_github_api.py demo test
+# Test everything works with our simple demo
+python src/try-me-script.py demo test
 
 # This will:
-# 1. Create a config file requirement (follow the error message to create it)
-# 2. Fetch data from GitHub's public API
+# 1. Tell you to create a config file (follow the instructions)
+# 2. Fetch data from GitHub's public API  
 # 3. Save results to output/demo-test-github_repos_*.json
+# 4. Show you all the patterns in action
 ```
 
-## Getting Started - Recommended Reading Path
+### Step 3: Create Your Config (When Prompted)
 
-After the Quick Start, follow this learning path:
+The try-me script will tell you exactly what to create:
 
-1. **Read this README completely** - Understand the structure and patterns
-2. **Read [in-depth-readme.md](in-depth-readme.md)** - Learn all patterns in detail
-3. **Read [Architecture Decision Records](ai/decided/adr-records.md)** - Understand why we built it this way
-4. **Upload AI prompt to Claude** - Use `ai/prompts/txo-python-template-v3.0.xml` for AI assistance
-
-## Troubleshooting with AI
-
-When debugging issues with AI assistance, follow these steps for best results:
-
-### 1. Generate Clean Debug Logs
-Since we always have `debug` level logging to file, you have a lot of useful information in the file.
-```bash
-# Delete old log files to reduce noise
-rm logs/*.log
-
-# Run your failing script again
-python src/your_script.py demo test
-
-# The new log file will contain only relevant debug information
-```
-
-### 2. Provide Context to AI
-Upload to the AI:
-- The fresh log file from `logs/`
-- Your script that's failing
-- The specific error message
-- Your config file (remove secrets first)
-
-### 3. Common Issues to Check First
-Before asking AI, verify:
-- Config file exists: `config/{org_id}-{env_type}-config.json`
-- Required keys are in config (check against schema)
-- API endpoint is accessible (test with curl/Postman)
-- Token is valid (check expiration)
-- Output directory exists and is writable
-
-### 4. Improving Debug Information
-Add strategic debug logging to identify issues:
-```python
-# Log the actual values being used
-logger.debug(f"API URL: {url}")
-logger.debug(f"Headers: {headers}")
-logger.debug(f"Payload size: {len(str(payload))} chars")
-
-# Log before and after critical operations
-logger.debug("About to call API...")
-response = api.get(url)
-logger.debug(f"API returned status: {response.status_code}")
-
-# Log data transformations
-logger.debug(f"Input records: {len(input_data)}")
-logger.debug(f"After filtering: {len(filtered_data)}")
-```
-
-### 5. Error Pattern Recognition
-The AI can better help if you identify the pattern:
-- **ConfigurationError**: Missing or invalid config
-- **ApiAuthenticationError**: Token/credential issues
-- **ApiTimeoutError**: Network or performance issues
-- **HelpfulError**: Already contains the solution
-- **KeyError**: Missing required config key
-
-### 6. Minimal Reproducible Example
-Create a minimal script that reproduces the issue:
-```python
-# src/debug_test.py
-from utils.logger import setup_logger
-from utils.script_runner import parse_args_and_load_config
-from utils.api_factory import create_rest_api
-
-logger = setup_logger()
-
-def main():
-    config = parse_args_and_load_config("Debug test")
-    logger.debug(f"Config loaded: {list(config.keys())}")
-    
-    # Add only the failing operation
-    api = create_rest_api(config)
-    result = api.get("https://api.example.com/test")
-    logger.info(f"Result: {result}")
-
-if __name__ == "__main__":
-    main()
+```json
+# config/demo-test-config.json
+{
+  "global": {
+    "api-base-url": "https://api.github.com",
+    "api-version": "v3"
+  },
+  "script-behavior": {
+    "api-delay-seconds": 1,
+    "api-timeouts": {
+      "rest-timeout-seconds": 30
+    },
+    "retry-strategy": {
+      "max-retries": 3,
+      "backoff-factor": 2.0
+    },
+    "jitter": {
+      "min-factor": 0.8,
+      "max-factor": 1.2
+    },
+    "rate-limiting": {
+      "enabled": true,
+      "calls-per-second": 10,
+      "burst-size": 1
+    },
+    "circuit-breaker": {
+      "enabled": true,
+      "failure-threshold": 5,
+      "timeout-seconds": 60
+    },
+    "batch-handling": {
+      "read-batch-size": 100
+    }
+  }
+}
 ```
 
 ## Project Structure
 
 ```
 txo-python-template/
-├── ai/                     # AI assistance files
-│   ├── decided/            # Architecture Decision Records (ADRs) and finished AI reports
-│   ├── prompts/            # AI prompt templates
-│   └── reports/            # AI reports good but not finished
+├── src/                    # Your scripts go here
+│   ├── try-me-script.py    # ⭐ START HERE - Simple test script
+│   └── test_v2_features.py # Advanced feature tests
+├── utils/                  # Helper modules (DON'T MODIFY)
+│   ├── api_common.py       # Rate limiting, circuit breaker
+│   ├── api_factory.py      # API client creation
+│   ├── concurrency.py      # Parallel processing
+│   ├── config_loader.py    # Configuration management
+│   ├── exceptions.py       # Custom exceptions with HelpfulError
+│   ├── load_n_save.py      # Intelligent file I/O
+│   ├── logger.py           # Logging with token redaction
+│   ├── oauth_helpers.py    # OAuth 2.0 support
+│   ├── path_helpers.py     # Cross-platform paths
+│   ├── rest_api_helpers.py # REST client with resilience
+│   ├── script_runner.py    # Script initialization
+│   └── url_helpers.py      # URL construction
 ├── config/                 # Configuration files
-│   ├── logging-config.json
-│   └── {org}-{env}-config.json
-├── data/                   # Input data files
-├── files/                  # General files
-├── generated_payloads/     # Draft payloads (validate before use)
+│   ├── logging-config.json # Logging settings
+│   └── {org}-{env}-config.json # Your config files
+├── schemas/                # JSON schemas
+│   └── org-env-config-schema.json # ⚠️ UPDATE when changing config structure
+├── output/                 # Generated files go here
 ├── logs/                   # Log files (gitignored)
-├── output/                 # Generated output files
-├── payloads/              # Validated payloads ready to send
-├── schemas/               # JSON schemas for validation
-├── src/                   # Main scripts
-│   └── test_github_api.py
-├── tmp/                   # Temporary files (gitignored)
-├── utils/                 # Helper modules
-│   ├── api_common.py      # Rate limiting, circuit breaker
-│   ├── api_factory.py     # API client creation
-│   ├── concurrency.py     # Parallel processing
-│   ├── config_loader.py   # Configuration management
-│   ├── exceptions.py      # Custom exceptions
-│   ├── load_n_save.py     # File I/O operations
-│   ├── logger.py          # Logging setup
-│   ├── oauth_helpers.py   # OAuth 2.0 support
-│   ├── path_helpers.py    # Path management
-│   ├── rest_api_helpers.py # REST client
-│   ├── script_runner.py   # Script initialization
-│   └── url_helpers.py     # URL construction
-└── wsdl/                  # WSDL files (if needed)
-```
+└── ai/                     # AI assistance
+    ├── prompts/            # AI prompt templates
+    └── decided/            # Architecture Decision Records
 
 ## Core Patterns
 
-### Standard Script Structure
+### 1. Standard Script Structure
+Every script follows this pattern:
+
 ```python
 # src/my_script.py
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
+from utils.load_n_save import TxoDataHandler
+from utils.exceptions import HelpfulError
 
 logger = setup_logger()
+data_handler = TxoDataHandler()
 
 def main():
     config = parse_args_and_load_config("My script description")
     logger.info(f"Starting {config['_org_id']}-{config['_env_type']}")
+    
     # Your code here
-
+    # config['_token'] is automatically injected if auth is needed
+    
 if __name__ == "__main__":
     main()
 ```
 
-### Error Handling with HelpfulError
+### 2. Error Handling with HelpfulError
+Never show stack traces to users. Use HelpfulError:
+
 ```python
 from utils.exceptions import HelpfulError
 
-raise HelpfulError(
-    what_went_wrong="Config file 'settings.json' not found",
-    how_to_fix="Create the file in config/ directory",
-    example="See config/example.json for format"
-)
+if not data_handler.exists("config", filename):
+    raise HelpfulError(
+        what_went_wrong="Config file 'settings.json' not found",
+        how_to_fix="Create the file in config/ directory",
+        example="Copy config/example.json to config/settings.json"
+    )
 ```
 
-## Configuration
+### 3. Intelligent Save Pattern
+The `save()` method auto-detects type from data and extension:
 
-### Basic Config Structure
+```python
+# JSON (auto-handles Decimal types)
+data_handler.save({"amount": Decimal("99.99")}, "output", "data.json")
 
-**Important**: When you modify configuration structure, you MUST update the JSON Schema in `schemas/org-env-config-schema.json` to match your changes.
+# CSV from DataFrame
+data_handler.save(df, "output", "report.csv", index=False)
+
+# Excel from DataFrame  
+data_handler.save(df, "output", "report.xlsx", sheet_name="Results")
+
+# Plain text
+data_handler.save("Report content", "output", "report.txt")
+```
+
+### 4. Configuration Philosophy
+**Hard fail on missing required config** - no silent errors:
+
+```python
+# Required config - KeyError if missing (GOOD)
+api_url = config['global']['api-base-url']  
+
+# Optional API response - None if missing (GOOD)
+email = response.get('email')
+
+# NEVER do soft fail on config (BAD)
+api_url = config.get('global', {}).get('api-base-url', 'default')  # NO!
+```
+
+## Configuration Management
+
+### ⚠️ Critical Rule: Schema Must Match Config
+
+**EVERY configuration change requires updating the JSON schema!**
+
+When you add/modify configuration:
+1. Update your `config/{org}-{env}-config.json`
+2. **IMMEDIATELY** update `schemas/org-env-config-schema.json`
+3. Use kebab-case for all keys: `"my-new-setting"`
+4. Document the purpose in the schema description
+
+### Configuration Structure
 
 ```json
 {
   "global": {
     "api-base-url": "https://api.example.com",
-    "tenant-id": "your-tenant",
+    "api-version": "v2",
+    "tenant-id": "your-tenant-id",
     "client-id": "your-client-id",
     "oauth-scope": "https://api.example.com/.default"
   },
   "script-behavior": {
-    "enable-rate-limiting": true,
-    "rate-limit-per-second": 10,
+    "api-delay-seconds": 1,
     "api-timeouts": {
       "rest-timeout-seconds": 60,
-      "max-retries": 3
+      "max-retries": 3,
+      "backoff-factor": 2.0,
+      "async-max-wait": 300,
+      "async-poll-interval": 5
+    },
+    "retry-strategy": {
+      "max-retries": 3,
+      "backoff-factor": 2.0
+    },
+    "jitter": {
+      "min-factor": 0.8,
+      "max-factor": 1.2
+    },
+    "rate-limiting": {
+      "enabled": true,
+      "calls-per-second": 10,
+      "burst-size": 1
+    },
+    "circuit-breaker": {
+      "enabled": true,
+      "failure-threshold": 5,
+      "timeout-seconds": 60
+    },
+    "batch-handling": {
+      "read-batch-size": 100,
+      "update-batch-size": 50
     }
   }
 }
 ```
 
-### Secrets File (gitignored)
+### Secrets Management (Never Commit!)
+
+Create `config/{org}-{env}-config-secrets.json` (gitignored):
+
 ```json
 {
-  "client-secret": "your-oauth-secret",
-  "az-token": "fallback-bearer-token"
+  "client-secret": "oauth-secret-here",
+  "az-token": "fallback-bearer-token",
+  "api-key": "additional-api-key"
 }
 ```
 
-## Architecture Decision Records (ADRs)
+Secrets are automatically injected with underscore prefix:
+- `client-secret` → `config['_client_secret']`
+- `az-token` → `config['_az_token']`
 
-We use ADRs to document important architecture decisions. ADRs help:
-- Understand why certain patterns were chosen
-- Maintain consistency across the codebase
-- Onboard new developers faster
-- Avoid repeating past mistakes
+## V2.1 Resilience Features
 
-Read our ADRs in [ai/decided/adr-records.md](ai/decided/adr-records.md)
+### Rate Limiting
+Prevents API bans by throttling requests:
+```python
+api = create_rest_api(config)  # Rate limiting applied automatically
+# Calls throttled to configured calls-per-second
+```
 
-When making significant changes, create a new ADR following the template in the file.
+### Circuit Breaker
+Stops cascade failures when APIs are down:
+- Opens after 5 consecutive failures
+- Fails fast for 60 seconds
+- Attempts to close after timeout
 
-## Dependencies
+### Async Operations (202 Accepted)
+Handles long-running operations transparently:
+```python
+result = api.post("/long-operation", data)
+# Automatically:
+# - Detects 202 Accepted response
+# - Polls Location header
+# - Respects Retry-After header
+# - Returns final result when ready
+```
 
-### Core Requirements
-- Python 3.13+
-- jsonschema - Configuration validation
-- openpyxl - Excel support
-- pandas - Data manipulation
-- python-dotenv - Environment variables
-- requests - HTTP client
-
-### Optional Extensions
-- tenacity - Advanced retry patterns
-- tqdm - Progress bars
-- zeep - SOAP support (not included by default)
+### Token Redaction
+Logger automatically redacts sensitive data:
+```python
+logger.info(f"Token: {token}")  # Logs: "Token: Bearer [REDACTED]"
+logger.debug(f"Password: {pwd}")  # Logs: "Password: [REDACTED]"
+```
 
 ## Best Practices
 
-1. **Never use `print()`** - Always use logger
-2. **Never hardcode paths** - Use `get_path()` helper
-3. **Always include type hints** - Better IDE support
-4. **Pass config dict** - Not individual parameters
-5. **Use HelpfulError** - Clear error messages
-6. **Update JSON schemas** - When changing config structure
-7. **Log extensively** - DEBUG for details, INFO for milestones
+1. **ALWAYS update schema** when changing config structure
+2. **Never use `print()`** - Use logger for all output
+3. **Never hardcode paths** - Use `get_path()` helper
+4. **Always include type hints** - Better IDE support
+5. **Pass entire config dict** - Not individual parameters
+6. **Use HelpfulError** - Clear, actionable error messages
+7. **Hard fail on config** - No silent configuration errors
+8. **Log extensively** - DEBUG for details, INFO for milestones
 
-## Key Commands
+## Common Commands
 
 ```bash
-# Run any script with org_id and env_type
-python src/script_name.py <org_id> <env_type>
+# Run the try-me script (start here!)
+python src/try-me-script.py demo test
 
-# With optional flags
-python src/script_name.py txo prod --no-token    # Skip authentication
-python src/script_name.py txo test --debug        # Enable debug logging
-python src/script_name.py txo dev --no-validation # Skip schema validation
+# Run with different org/env
+python src/try-me-script.py mycompany prod
+
+# Optional flags
+python src/script.py demo test --no-token      # Skip authentication
+python src/script.py demo test --debug          # Enable debug logging
+python src/script.py demo test --no-validation  # Skip schema validation
+
+# Test all v2.1 features
+python src/test_v2_features.py demo test
 ```
 
-## Future Development
+## PyCharm Setup (Recommended)
 
-- Unit tests for helper modules
-- Integration tests for API clients
-- Performance benchmarks for parallel processing
-- Additional API authentication methods
-- GraphQL support
+1. Open project in PyCharm
+2. PyCharm auto-detects `pyproject.toml`
+3. Let it create virtual environment
+4. To run scripts with arguments:
+   - Right-click script → Modify Run Configuration
+   - Add parameters: `demo test`
+   - Click Run
+
+## Troubleshooting
+
+### Config File Not Found
+```
+❌ Problem: Configuration file 'demo-test-config.json' not found
+✅ Solution: Create the file in config/ directory
+📝 Example: Copy config/example.json to config/demo-test-config.json
+```
+
+### Schema Validation Failed
+```
+❌ Problem: Configuration doesn't match schema
+✅ Solution: Check schemas/org-env-config-schema.json for required fields
+📝 Example: Ensure all required sections exist with correct structure
+```
+
+### Rate Limit Hit
+Enable rate limiting in config to prevent this:
+```json
+"rate-limiting": {
+  "enabled": true,
+  "calls-per-second": 5
+}
+```
+
+## Documentation
+
+- **[In-Depth Guide](in-depth-readme.md)** - Comprehensive pattern documentation
+- **[Architecture Decisions](ai/decided/adr-records.md)** - Why we built it this way
+- **[Module Dependencies](module-dependency-diagram.md)** - Visual architecture
+- **AI Assistance** - Upload `ai/prompts/txo-xml-prompt-v3.1.xml` to Claude
+
+## Migration from v1.x
+
+See [Migration Guide](docs/migration-v1-to-v2.md) for upgrading existing projects.
+
+Key changes in v2.1:
+- Config structure is now nested (rate-limiting, circuit-breaker as objects)
+- All config access uses hard-fail philosophy
+- HelpfulError replaces generic exceptions
+- Token redaction is automatic
+- Rate limiting and circuit breakers are built-in
 
 ## Contributing
 
-1. Follow the established patterns
-2. Add type hints and docstrings
+1. Follow established patterns
+2. **Update JSON schema for ANY config changes**
 3. Use HelpfulError for user-facing errors
-4. Update JSON schemas when changing config
-5. Create ADRs for significant changes
-6. Test with both test and prod configurations
+4. Add type hints and docstrings
+5. Test with both test and prod configurations
+6. Create ADR for significant changes
 
 ## License
 
-Released under the MIT License. See [LICENSE](./LICENSE) for details.
+MIT License - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **REST/OData Issues**: Open an issue on GitHub
-- **SOAP Support**: Contact Morre directly
-- **General Questions**: Check the in-depth documentation first
-
-## Links
-
-- [Tentixo GitHub](https://github.com/tentixo)
-- [Issue Tracker](https://github.com/tentixo/txo-python-template/issues)
-- [Architecture Decisions](ai/decided/adr-records.md)
+- **Issues**: [GitHub Issues](https://github.com/tentixo/txo-python-template/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/tentixo/txo-python-template/discussions)
+- **Template Version**: v2.1.0
+- **Python Required**: 3.10+ (3.13+ recommended)
