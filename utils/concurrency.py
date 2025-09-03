@@ -73,7 +73,7 @@ class ProgressTracker:
     def __init__(self, total: int, desc: str = "Processing",
                  show_progress: bool = True):
         """
-        Initialize progress tracker.
+        Initialize the progress tracker.
 
         Args:
             total: Total number of items to process

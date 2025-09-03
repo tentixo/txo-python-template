@@ -24,37 +24,32 @@ class RateLimiter:
 
     Limits the rate of API calls to prevent hitting rate limits.
     """
-
-    def __init__(self, calls_per_second: float = 10):
+    def __init__(self,
+                 calls_per_second: float = 10,
+                 burst_size: float = 1.0):
         """
         Initialize rate limiter.
 
         Args:
-            calls_per_second: Maximum calls per second allowed
+            calls_per_second: Sustained rate limit
+            burst_size: Max tokens that can accumulate (1.0 = no burst)
         """
         self.rate = calls_per_second
-        self.allowance = calls_per_second
+        self.burst_size = max(1.0, burst_size)
+        self.allowance = min(1.0, self.burst_size)
         self.last_check = time.time()
 
     def wait_if_needed(self) -> None:
-        """
-        Wait if necessary to maintain rate limit.
-
-        This implements a token bucket algorithm where tokens
-        are added at the specified rate.
-        """
         current = time.time()
         time_passed = current - self.last_check
         self.last_check = current
 
-        # Add tokens based on time passed
         self.allowance += time_passed * self.rate
 
-        # Cap at maximum rate
-        if self.allowance > self.rate:
-            self.allowance = self.rate
+        # Cap at burst_size instead of rate
+        if self.allowance > self.burst_size:
+            self.allowance = self.burst_size
 
-        # If not enough tokens, wait
         if self.allowance < 1.0:
             sleep_time = (1.0 - self.allowance) / self.rate
             logger.debug(f"Rate limiting: sleeping {sleep_time:.3f}s")

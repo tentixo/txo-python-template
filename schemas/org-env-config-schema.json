@@ -1,0 +1,268 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TXO Organization Environment Configuration",
+  "description": "Configuration schema for TXO Python Template v2.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "global",
+    "script-behavior"
+  ],
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api-base-url",
+        "api-version"
+      ],
+      "properties": {
+        "api-base-url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Base URL for API endpoints"
+        },
+        "api-version": {
+          "type": "string",
+          "description": "API version to use"
+        },
+        "tenant-id": {
+          "type": "string",
+          "description": "Azure tenant ID for OAuth (can be empty string)"
+        },
+        "client-id": {
+          "type": "string",
+          "description": "Application client ID for OAuth (can be empty string)"
+        },
+        "oauth-scope": {
+          "type": "string",
+          "description": "OAuth scope for authentication (can be empty string)"
+        }
+      }
+    },
+    "script-behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api-timeouts",
+        "retry-strategy",
+        "jitter",
+        "rate-limiting",
+        "circuit-breaker",
+        "batch-handling"
+      ],
+      "properties": {
+        "api-delay-seconds": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 60,
+          "description": "Delay between API operations"
+        },
+        "api-timeouts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rest-timeout-seconds"
+          ],
+          "properties": {
+            "rest-timeout-seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300,
+              "description": "REST API timeout in seconds"
+            },
+            "soap-timeout-seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300,
+              "description": "SOAP API timeout in seconds"
+            },
+            "wsdl-timeout-seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 300,
+              "description": "WSDL fetch timeout in seconds"
+            },
+            "async-max-wait": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600,
+              "description": "Maximum wait for async operations in seconds"
+            },
+            "async-poll-interval": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60,
+              "description": "Polling interval for async operations in seconds"
+            }
+          }
+        },
+        "retry-strategy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max-retries",
+            "backoff-factor"
+          ],
+          "properties": {
+            "max-retries": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "description": "Maximum number of retry attempts"
+            },
+            "backoff-factor": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 10,
+              "description": "Exponential backoff factor for retries"
+            }
+          }
+        },
+        "jitter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "min-factor",
+            "max-factor"
+          ],
+          "properties": {
+            "min-factor": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1.0,
+              "description": "Minimum jitter factor"
+            },
+            "max-factor": {
+              "type": "number",
+              "minimum": 1.0,
+              "maximum": 2.0,
+              "description": "Maximum jitter factor"
+            }
+          }
+        },
+        "rate-limiting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "calls-per-second",
+            "burst-size"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether rate limiting is enabled"
+            },
+            "calls-per-second": {
+              "type": "number",
+              "minimum": 0.1,
+              "maximum": 1000,
+              "description": "Maximum calls per second"
+            },
+            "burst-size": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Maximum burst capacity (1 = no burst)"
+            }
+          }
+        },
+        "circuit-breaker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enabled",
+            "failure-threshold",
+            "timeout-seconds"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether circuit breaker is enabled"
+            },
+            "failure-threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Number of failures before circuit opens"
+            },
+            "timeout-seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600,
+              "description": "Seconds before attempting to close circuit"
+            }
+          }
+        },
+        "batch-handling": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "read-batch-size"
+          ],
+          "properties": {
+            "read-batch-size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Number of items to read per batch"
+            },
+            "update-batch-size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Number of items to update per batch"
+            },
+            "vat-batch-size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Number of VAT items to process per batch"
+            }
+          }
+        },
+        "enable-progress-bars": {
+          "type": "boolean",
+          "description": "Whether to show progress bars for long operations"
+        }
+      }
+    },
+    "environments": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "api-endpoint": {
+              "type": "string",
+              "format": "uri",
+              "description": "Test environment API endpoint"
+            },
+            "verify-ssl": {
+              "type": "boolean",
+              "description": "Whether to verify SSL certificates"
+            }
+          }
+        },
+        "prod": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "api-endpoint": {
+              "type": "string",
+              "format": "uri",
+              "description": "Production environment API endpoint"
+            },
+            "verify-ssl": {
+              "type": "boolean",
+              "description": "Whether to verify SSL certificates"
+            }
+          }
+        }
+      }
+    }
+  }
+}

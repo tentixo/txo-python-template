@@ -35,7 +35,7 @@ class DecimalEncoder(json.JSONEncoder):
     """
 
     def default(self, obj):
-        """Convert Decimal to float, pass others to default encoder."""
+        """Convert Decimal to float, pass others to the default encoder."""
         if isinstance(obj, Decimal):
             return float(obj)
         return super().default(obj)
@@ -82,45 +82,6 @@ class TxoDataHandler:
                 logger.error("openpyxl not installed. Install with: pip install openpyxl")
                 raise ImportError("openpyxl is required for Excel operations") from e
         return cls._openpyxl
-
-    @staticmethod
-    def load_mapping_sheet(localization_code: str, sheet_name: str,
-                           version: str, org_id: str, env_type: str):
-        """
-        Load the mapping sheet from the Excel file for a given localization and version.
-
-        The file is expected to be named:
-        {org_id}-{env_type}-BC_Config-mapping_{localization_code}_v{version}.xlsx
-
-        Args:
-            localization_code: Localization code (e.g., 'FR', 'SE')
-            sheet_name: The name of the sheet to load from the Excel file
-            version: The version to load (e.g., '26.1', '26.2')
-            org_id: Organization ID (from arg)
-            env_type: Environment type (e.g., 'test', 'prod')
-
-        Returns:
-            pd.DataFrame: The loaded mapping sheet as a DataFrame
-
-        Raises:
-            FileNotFoundError: If the Excel file doesn't exist
-            ValueError: If the sheet doesn't exist in the file
-            Exception: If loading fails for any other reason
-        """
-        _logger = setup_logger()
-
-        filename = f"{org_id}-{env_type}-BC_Config-mapping_{localization_code}_v{version}.xlsx"
-        _logger.info(f"Loading mapping sheet '{sheet_name}' from file: {filename}")
-
-        try:
-            df = TxoDataHandler.load_excel("data", filename, sheet_name=sheet_name)
-            # Use lazy pandas reference - fixed shadowing issue
-            df = df.astype(object)  # Ensure all columns are objects
-            _logger.debug(f"Mapping sheet '{sheet_name}' loaded with {len(df)} rows.")
-            return df
-        except Exception as e:
-            _logger.error(f"Failed to load mapping sheet from {filename}: {e}")
-            raise
 
     @staticmethod
     def load_json(directory: str, filename: str) -> Union[Dict[str, Any], list]:
@@ -256,35 +217,6 @@ class TxoDataHandler:
         except Exception as e:
             logger.error(f"Error loading CSV {file_path}: {e}")
             raise
-
-    @staticmethod
-    def load_package(directory: str, filename: str) -> bytes:
-        """
-        Load a binary package file (e.g., RapidStart).
-
-        Args:
-            directory: The category directory (e.g., "files")
-            filename: The name of the package file to load
-
-        Returns:
-            The binary content of the package file
-
-        Raises:
-            FileNotFoundError: If the file does not exist
-            PermissionError: If access to the file is denied
-        """
-        file_path: Path = get_path(directory, filename)
-        logger.debug(f"Loading package from {file_path}")
-
-        try:
-            with open(file_path, 'rb') as f:
-                return f.read()
-        except FileNotFoundError as e:
-            logger.error(f"File not found: {file_path}")
-            raise FileNotFoundError(f"Cannot load package: {file_path} does not exist") from e
-        except PermissionError as e:
-            logger.error(f"Permission denied accessing {file_path}: {e}")
-            raise PermissionError(f"Cannot load package: Permission denied for {file_path}") from e
 
     @staticmethod
     def load_gzip(directory: str, filename: str) -> bytes:

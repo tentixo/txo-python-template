@@ -37,6 +37,9 @@ class TokenRedactionFilter(logging.Filter):
         (r'ey[A-Za-z0-9\-_]+\.ey[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+', '[REDACTED_JWT]'),  # JWT tokens
     ]
 
+    def __init__(self):
+        super().__init__()
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Redact sensitive information from log record."""
         if hasattr(record, 'msg'):
@@ -66,7 +69,7 @@ class ContextFilter(logging.Filter):
     """
 
     def __init__(self, org_id: Optional[str] = None):
-        super().__init__()
+        super().__init__()  # <-- Add this line
         self.org_id = org_id or "default"
         self.start_time = datetime.now(timezone.utc)
 
@@ -76,33 +79,6 @@ class ContextFilter(logging.Filter):
         elapsed = (datetime.now(timezone.utc) - self.start_time).total_seconds()
         record.elapsed_ms = elapsed * 1000
         return True
-
-
-class SafeFormatter(logging.Formatter):
-    """
-    Safe formatter that handles missing attributes gracefully.
-
-    Prevents errors when format string references attributes that may not exist.
-    """
-
-    def format(self, record: logging.LogRecord) -> str:
-        """
-        Format log record, adding default values for missing attributes.
-
-        Args:
-            record: Log record to format
-
-        Returns:
-            Formatted log message
-        """
-        # Ensure custom attributes exist with defaults
-        if not hasattr(record, 'org_id'):
-            record.org_id = 'default'
-        if not hasattr(record, 'elapsed_ms'):
-            record.elapsed_ms = 0.0
-
-        # Call parent formatter
-        return super().format(record)
 
 
 class TxoLogger:
@@ -132,17 +108,31 @@ class TxoLogger:
         with self._lock:
             if not self._initialized:
                 self.logger = logging.getLogger('TxoApp')
-                self.context_filter = None
+
+                # ALWAYS add context filter immediately with defaults
+                self.context_filter = ContextFilter()  # Has defaults
+                self.logger.addFilter(self.context_filter)
+
                 self.token_filter = TokenRedactionFilter()
-                self._setup_logger()
+                self.logger.addFilter(self.token_filter)
+
+                # NOW safe to configure (format expects org_id)
+                self._configure_logging()
                 self._initialized = True
 
-    def _setup_logger(self) -> None:
+    def _configure_logging(self) -> None:
         """
         Set up logger with configuration file or defaults.
 
         Tries to load logging-config.json, falls back to sensible defaults.
         """
+        # Add filters FIRST, before any logging attempts
+        # This ensures org_id and elapsed_ms are always available
+        if not self.context_filter:
+            self.context_filter = ContextFilter()
+        self.logger.addFilter(self.context_filter)
+        self.logger.addFilter(self.token_filter)
+
         config_path = get_path('config', 'logging-config.json')
 
         try:
@@ -158,17 +148,35 @@ class TxoLogger:
             if 'handlers' in config and 'file' in config['handlers']:
                 config['handlers']['file']['filename'] = log_path
 
+            # Add urllib3 logger config to prevent it from using our format
+            if 'loggers' not in config:
+                config['loggers'] = {}
+
+            # Suppress urllib3 debug logs that don't have org_id
+            config['loggers']['urllib3'] = {
+                'level': 'WARNING',
+                'handlers': ['console'],
+                'propagate': False
+            }
+            config['loggers']['urllib3.connectionpool'] = {
+                'level': 'WARNING',
+                'handlers': ['console'],
+                'propagate': False
+            }
+
             # Apply configuration
             logging.config.dictConfig(config)
+
+            # Re-add our filters after config (in case dictConfig cleared them)
+            self.logger.addFilter(self.context_filter)
+            self.logger.addFilter(self.token_filter)
+
             self.logger.debug(f"Logger configured from {config_path}")
 
         except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
             # Use default configuration
             self._setup_default_logging()
             self.logger.info(f"Using default logging config: {e}")
-
-        # Always add token redaction filter
-        self.logger.addFilter(self.token_filter)
 
     def _setup_default_logging(self) -> None:
         """Set up default logging configuration."""
@@ -181,7 +189,7 @@ class TxoLogger:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
 
-        file_formatter = SafeFormatter(
+        file_formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - [%(org_id)s] [%(elapsed_ms).0fms] - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
@@ -249,8 +257,8 @@ def setup_logger(org_id: Optional[str] = None) -> TxoLogger:
         Configured TxoLogger instance
 
     Example:
-        >>> logger = setup_logger("myorg")
-        >>> logger.info("Processing started")
+         logger = setup_logger("my_org")
+         logger.info("Processing started")
     """
     logger_instance = TxoLogger()
     if org_id:

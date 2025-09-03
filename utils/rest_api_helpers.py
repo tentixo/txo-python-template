@@ -33,6 +33,7 @@ from utils.api_common import (
     RateLimiter,
     CircuitBreaker
 )
+from utils.rate_limit_manager import RateLimitManager
 
 logger = setup_logger()
 
@@ -143,7 +144,6 @@ class SessionManager:
             pool_connections=10
         )
         session.mount("https://", adapter)
-        session.mount("http://", adapter)
 
         return session
 
@@ -155,11 +155,12 @@ class SessionManager:
             self._session_cache.clear()
 
 
-class MinimalRestAPI:
+class TxoRestAPI:
     """
-    Enhanced REST API client for Business Central operations.
+    Enhanced REST API client.
 
     Features:
+    - Optional authentication (for public APIs)
     - Automatic retry with exponential backoff and jitter
     - Connection pooling with limits
     - Rate limiting and circuit breaker support
@@ -167,7 +168,10 @@ class MinimalRestAPI:
     - OData pagination support
     """
 
-    def __init__(self, token: str,
+    def __init__(self,
+                 token: Optional[str] = None,
+                 require_auth: bool = True,
+                 rate_limit_manager: Optional[RateLimitManager] = None,
                  timeout_config: Optional[Dict[str, Any]] = None,
                  jitter_config: Optional[Dict[str, Any]] = None,
                  rate_limiter: Optional[RateLimiter] = None,
@@ -176,23 +180,36 @@ class MinimalRestAPI:
         Initialize REST API client with enhanced features.
 
         Args:
-            token: Bearer token for authentication
+            token: Bearer token for authentication (optional if require_auth=False)
+            require_auth: Whether authentication is required (default: True)
             timeout_config: Timeout and retry settings
             jitter_config: Jitter configuration
             rate_limiter: Optional rate limiter instance
             circuit_breaker: Optional circuit breaker instance
+
+        Raises:
+            ValueError: If require_auth=True but no token provided
         """
+        # Validate auth requirements
+        if require_auth and not token:
+            raise ValueError(
+                "Token is required when require_auth=True. "
+                "Either provide a token or set require_auth=False for public APIs."
+            )
+
         self.token = token
+        self.require_auth = require_auth
+
+        self.rate_limit_manager = rate_limit_manager
 
         # Default timeout and retry settings
         defaults = {
             "rest-timeout-seconds": 60,
             "max-retries": 5,
             "backoff-factor": 3.0,
-            "async-max-wait": 300,  # Max wait for async operations
-            "async-poll-interval": 5  # Polling interval for async
+            "async-max-wait": 300,
+            "async-poll-interval": 5
         }
-
         self.timeouts = {**defaults, **(timeout_config or {})}
 
         # Jitter configuration
@@ -202,19 +219,31 @@ class MinimalRestAPI:
         self.rate_limiter = rate_limiter
         self.circuit_breaker = circuit_breaker
 
-        # Initialize REST infrastructure
+        # Initialize headers - auth is optional
         self.headers = {
-            "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
             "Prefer": "return=representation"
         }
 
+        # Only add Authorization header if token provided
+        if token:
+            self.headers["Authorization"] = f"Bearer {token}"
+            logger.debug("REST API client initialized with authentication")
+        else:
+            logger.debug("REST API client initialized without authentication (public API mode)")
+
         # Session management with connection pool limits
         self._session_manager = SessionManager(max_cache_size=50)
-        self._session_key = f"rest_{id(self)}"  # Unique key for this instance
+        self._session_key = f"rest_{id(self)}"
 
-        logger.debug(f"Initialized MinimalRestAPI with enhanced features")
+        # Log configuration
+        logger.debug(
+            f"Initialized TxoRestAPI "
+            f"(auth={'yes' if token else 'no'}, "
+            f"rate_limit={'yes' if rate_limiter else 'no'}, "
+            f"circuit_breaker={'yes' if circuit_breaker else 'no'})"
+        )
 
     @property
     def session(self) -> requests.Session:
@@ -379,6 +408,7 @@ class MinimalRestAPI:
         Returns:
             Response object
         """
+
         # Check circuit breaker
         self._check_circuit_breaker(f"{method} {url}")
 
@@ -401,6 +431,10 @@ class MinimalRestAPI:
 
                 response = self.session.request(method, url, **kwargs)
 
+                # UPDATE RATE LIMITS FROM HEADERS (ADD HERE)
+                if self.rate_limit_manager and response.headers:
+                    self.rate_limit_manager.update_from_headers(url, response.headers)
+
                 if response.ok or response.status_code == 202:
                     # Record success in circuit breaker
                     if self.circuit_breaker:
@@ -418,6 +452,8 @@ class MinimalRestAPI:
 
                 # Check if we should retry
                 if response.status_code in [429, 500, 502, 503, 504]:
+                    if response.status_code == 429 and self.rate_limit_manager:
+                        self.rate_limit_manager.update_from_headers(url, response.headers)
                     last_error = f"HTTP {response.status_code}"
                     if attempt < max_retries - 1:
                         retry_after = response.headers.get('Retry-After')
@@ -747,7 +783,7 @@ def retry_rest_call(api_func, *args, max_retries: int = None,
     """
     Retry REST API calls with exponential backoff and jitter.
 
-    Note: Mostly redundant now as retry logic is built into MinimalRestAPI
+    Note: Mostly redundant now as retry logic is built into TxoRestAPI
     but kept for backward compatibility.
 
     Args:
@@ -760,7 +796,7 @@ def retry_rest_call(api_func, *args, max_retries: int = None,
         Result from successful API call
     """
     # If retry is already handled by the function, just call it
-    if hasattr(api_func, '__self__') and isinstance(api_func.__self__, MinimalRestAPI):
+    if hasattr(api_func, '__self__') and isinstance(api_func.__self__, TxoRestAPI):
         kwargs.pop('timeout', None)
         return api_func(*args, **kwargs)
 
