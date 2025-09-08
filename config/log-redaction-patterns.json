@@ -1,0 +1,129 @@
+{
+  "redaction-patterns": {
+    "description": "TXO-specific redaction patterns with consistent structure",
+    "patterns": [
+      {
+        "name": "bearer-token",
+        "pattern": "Bearer\\s+[A-Za-z0-9\\-._~+/]+=*",
+        "replacement": "Bearer [REDACTED]",
+        "description": "Bearer authentication tokens"
+      },
+      {
+        "name": "jwt-token",
+        "pattern": "ey[A-Za-z0-9\\-_]+\\.ey[A-Za-z0-9\\-_]+\\.[A-Za-z0-9\\-_]+",
+        "replacement": "[REDACTED_JWT]",
+        "description": "JSON Web Tokens"
+      },
+      {
+        "name": "password-json",
+        "pattern": "\"password\":\\s*\"[^\"]*\"",
+        "replacement": "\"password\": \"[REDACTED]\"",
+        "description": "Passwords in JSON"
+      },
+      {
+        "name": "client-secret-json",
+        "pattern": "\"client_secret\":\\s*\"[^\"]*\"",
+        "replacement": "\"client_secret\": \"[REDACTED]\"",
+        "description": "Client secrets in JSON"
+      },
+      {
+        "name": "azure-storage-accountkey",
+        "pattern": "(AccountKey=)[^;\\s]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "Azure Storage account key"
+      },
+      {
+        "name": "azure-storage-full",
+        "pattern": "DefaultEndpointsProtocol=https;AccountName=[^;]+;AccountKey=[^;\\s]+",
+        "replacement": "DefaultEndpointsProtocol=https;AccountName=[REDACTED];AccountKey=[REDACTED]",
+        "description": "Full Azure Storage connection string"
+      },
+      {
+        "name": "connection-string-password",
+        "pattern": "(Password=)[^;\\s]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "Password in connection strings"
+      },
+      {
+        "name": "url-api-key",
+        "pattern": "(api_key=)[^&\\s]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "API key in URL parameters"
+      },
+      {
+        "name": "url-apikey",
+        "pattern": "(apikey=)[^&\\s]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "API key in URL (no underscore)"
+      },
+      {
+        "name": "accesskey-regex",
+        "pattern": "(accesskey=)[^;\\s]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "Access key - explicit regex pattern"
+      },
+      {
+        "name": "secret-param-regex",
+        "pattern": "(secret=)[^\\s&;]+",
+        "replacement": "\\1[REDACTED]",
+        "description": "Secret parameter - explicit regex pattern"
+      },
+      {
+        "name": "credit-card",
+        "pattern": "\\b\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}[\\s\\-]?\\d{4}\\b",
+        "replacement": "[REDACTED_CARD]",
+        "description": "Credit card numbers"
+      },
+      {
+        "name": "ssn-us",
+        "pattern": "\\b\\d{3}-\\d{2}-\\d{4}\\b",
+        "replacement": "[REDACTED_SSN]",
+        "description": "US Social Security Numbers"
+      },
+      {
+        "name": "long-token",
+        "pattern": "\\b[A-Za-z0-9]{40,}\\b",
+        "replacement": "[REDACTED_TOKEN]",
+        "description": "Long random strings - keep this LAST as it's very broad"
+      }
+    ],
+    "simple-patterns": [
+      {
+        "name": "accesskey-simple",
+        "contains": ["accesskey="],
+        "replacement": "[REDACTED]",
+        "description": "Access keys - simple keyword match"
+      },
+      {
+        "name": "api-key-variations",
+        "contains": ["api_key=", "apikey=", "api-key="],
+        "replacement": "[REDACTED]",
+        "description": "API key parameter variations"
+      },
+      {
+        "name": "secret-keywords",
+        "contains": ["secret=", "client_secret=", "app_secret="],
+        "replacement": "[REDACTED]",
+        "description": "Secret parameters"
+      },
+      {
+        "name": "password-keywords",
+        "contains": ["password=", "pwd=", "passwd="],
+        "replacement": "[REDACTED]",
+        "description": "Password parameters"
+      },
+      {
+        "name": "token-keywords",
+        "contains": ["token=", "auth_token=", "access_token="],
+        "replacement": "[REDACTED]",
+        "description": "Token parameters"
+      },
+      {
+        "name": "key-keywords",
+        "contains": ["accountkey=", "sharedaccesskey=", "primarykey="],
+        "replacement": "[REDACTED]",
+        "description": "Various key parameters"
+      }
+    ]
+  }
+}

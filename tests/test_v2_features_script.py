@@ -1,4 +1,4 @@
-# src/test_v2_features.py
+# test/test_v2_features.py
 """
 Comprehensive test for v2.0 refactored features.
 
