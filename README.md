@@ -1,23 +1,29 @@
 # txo-python-template
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
-![Version](https://img.shields.io/badge/version-2.1.0-green)
+![Version](https://img.shields.io/badge/version-3.0.0-green)
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![PyCharm](https://img.shields.io/badge/IDE-PyCharm-green)
 
-**Tentixo's Python Template v2.1** - Production-ready framework for REST/OData API automation with built-in resilience patterns, automatic error handling, and enterprise-grade security features.
+**Tentixo's Python Template v3.0** - Production-ready framework for Python automation with mandatory configuration, type-safe path management, and enterprise-grade security features.
 
-> **⚠️ Important**: Any changes to configuration structure MUST be reflected in `schemas/org-env-config-schema.json`. The schema validates all configuration files.
+> **⚠️ BREAKING CHANGES in v3.0**: See [Migration Guide](#migration-from-v2x) for upgrade instructions.
 
-## What's New in v2.1.0
+## What's New in v3.0.0
 
-- 🔒 **Automatic Token Redaction** - Logs never expose sensitive data
-- ⚡ **Rate Limiting** - Prevent API bans with configurable throttling
-- 🔄 **Circuit Breakers** - Stop cascade failures automatically
-- 📊 **Async Operation Support** - Handle 202 Accepted responses transparently
-- 💡 **HelpfulError Pattern** - User-friendly error messages with solutions
-- 🎯 **Intelligent Save** - Auto-detects file type from data and extension
-- 🔧 **Hard-Fail Philosophy** - No silent failures on configuration errors
+### 🎯 Major Improvements
+- **Type-Safe Path Management** - Use `Categories.CONFIG` instead of `'config'` strings
+- **Token Optional by Default** - Most scripts don't need authentication
+- **Smart I/O** - Single `save()` method auto-detects file types
+- **Mandatory Security** - No defaults, configs required for all scripts
+- **Thread-Safe Operations** - Lazy loading with proper locking
+- **Nested Config Structure** - Cleaner organization of settings
+
+### 🔒 Security First
+All scripts REQUIRE three configuration files (will exit if missing):
+1. `{org}-{env}-config.json` - Main configuration
+2. `logging-config.json` - Logging setup
+3. `log-redaction-patterns.json` - Token redaction patterns
 
 ## Quick Start - 5 Minutes to Success
 
@@ -33,55 +39,107 @@ pip install uv
 uv pip install -r pyproject.toml
 ```
 
-### Step 2: Run the Try-Me Script
+### Step 2: Copy Required Config Files
+
+```bash
+# Copy MANDATORY config templates
+cp config/templates/logging-config.json config/
+cp config/templates/log-redaction-patterns.json config/
+
+# Copy example config for your org/env
+cp config/templates/org-env-config_example.json config/demo-test-config.json
+cp config/templates/org-env-config-secrets_example.json config/demo-test-config-secrets.json
+```
+
+### Step 3: Run the Try-Me Script
 
 ```bash
 # Test everything works with our simple demo
-python src/try-me-script.py demo test
+python examples/try-me-script.py demo test
 
 # This will:
-# 1. Tell you to create a config file (follow the instructions)
-# 2. Fetch data from GitHub's public API  
-# 3. Save results to output/demo-test-github_repos_*.json
-# 4. Show you all the patterns in action
+# 1. Validate all config files exist
+# 2. Fetch data from GitHub's public API (no auth needed)
+# 3. Save results using smart save()
+# 4. Demonstrate all v3.0 patterns
 ```
 
-### Step 3: Create Your Config (When Prompted)
+## Core v3.0 Patterns
 
-The try-me script will tell you exactly what to create:
+### 1. Type-Safe Path Management (NEW)
+```python
+from utils.path_helpers import Categories
 
+# ALWAYS use Categories constants
+config = data_handler.load_json(Categories.CONFIG, 'settings.json')
+data_handler.save(results, Categories.OUTPUT, 'results.json')
+
+# NEVER use strings
+# config = data_handler.load_json('config', 'settings.json')  # NO!
+```
+
+Available categories:
+- `Categories.CONFIG` - Configuration files
+- `Categories.DATA` - Input data files
+- `Categories.OUTPUT` - Generated output
+- `Categories.LOGS` - Log files
+- `Categories.TMP` - Temporary files
+- `Categories.SCHEMAS` - JSON schemas
+- Plus: FILES, GENERATED_PAYLOADS, PAYLOADS, WSDL
+
+### 2. Token is Optional (CHANGED)
+```python
+# Most scripts DON'T need authentication
+config = parse_args_and_load_config(
+    "My data processing script"
+    # require_token=False is the DEFAULT
+)
+
+# Only API scripts need tokens
+config = parse_args_and_load_config(
+    "Business Central API sync",
+    require_token=True  # Must be explicit
+)
+```
+
+### 3. Smart Save/Load (NEW)
+```python
+# One method for everything - auto-detects from extension
+data_handler.save(dict_data, Categories.OUTPUT, "data.json")      # JSON
+data_handler.save(dataframe, Categories.OUTPUT, "report.xlsx")    # Excel
+data_handler.save(dataframe, Categories.OUTPUT, "report.csv")     # CSV
+data_handler.save("text", Categories.OUTPUT, "readme.txt")        # Text
+data_handler.save(config, Categories.CONFIG, "settings.yaml")     # YAML
+
+# Load also auto-detects
+data = data_handler.load(Categories.DATA, "input.csv")  # Returns DataFrame
+```
+
+### 4. Mandatory Configuration (ENHANCED)
+```python
+# Script will exit(1) if ANY config file is missing
+logger = setup_logger()  # Exits if logging configs missing
+
+# Configuration MUST exist - no defaults
+config = parse_args_and_load_config("Script")  # Exits if config missing
+
+# Hard fail on missing keys - no soft defaults
+api_url = config['global']['api-base-url']  # KeyError is good!
+```
+
+### 5. Nested Config Structure (CHANGED)
 ```json
-# config/demo-test-config.json
 {
-  "global": {
-    "api-base-url": "https://api.github.com",
-    "api-version": "v3"
-  },
   "script-behavior": {
-    "api-delay-seconds": 1,
-    "api-timeouts": {
-      "rest-timeout-seconds": 30
-    },
-    "retry-strategy": {
-      "max-retries": 3,
-      "backoff-factor": 2.0
-    },
-    "jitter": {
-      "min-factor": 0.8,
-      "max-factor": 1.2
-    },
     "rate-limiting": {
       "enabled": true,
       "calls-per-second": 10,
       "burst-size": 1
     },
     "circuit-breaker": {
-      "enabled": true,
+      "enabled": false,
       "failure-threshold": 5,
       "timeout-seconds": 60
-    },
-    "batch-handling": {
-      "read-batch-size": 100
     }
   }
 }
@@ -91,309 +149,278 @@ The try-me script will tell you exactly what to create:
 
 ```
 txo-python-template/
-├── src/                    # Your scripts go here
-│   ├── try-me-script.py    # ⭐ START HERE - Simple test script
-│   └── test_v2_features.py # Advanced feature tests
-├── utils/                  # Helper modules (DON'T MODIFY)
+├── examples/               # Example scripts (NEW location)
+│   └── try-me-script.py    # ⭐ START HERE
+├── tests/                  # Test scripts (NEW location)
+│   └── test_features.py    # Feature validation
+├── utils/                  # Core framework (DON'T MODIFY)
 │   ├── api_common.py       # Rate limiting, circuit breaker
 │   ├── api_factory.py      # API client creation
-│   ├── concurrency.py      # Parallel processing
-│   ├── config_loader.py    # Configuration management
-│   ├── exceptions.py       # Custom exceptions with HelpfulError
-│   ├── load_n_save.py      # Intelligent file I/O
-│   ├── logger.py           # Logging with token redaction
-│   ├── oauth_helpers.py    # OAuth 2.0 support
-│   ├── path_helpers.py     # Cross-platform paths
-│   ├── rest_api_helpers.py # REST client with resilience
-│   ├── script_runner.py    # Script initialization
-│   └── url_helpers.py      # URL construction
-├── config/                 # Configuration files
-│   ├── logging-config.json # Logging settings
-│   └── {org}-{env}-config.json # Your config files
-├── schemas/                # JSON schemas
-│   └── org-env-config-schema.json # ⚠️ UPDATE when changing config structure
-├── output/                 # Generated files go here
+│   ├── config_loader.py    # Config validation
+│   ├── exceptions.py       # HelpfulError pattern
+│   ├── load_n_save.py      # Smart I/O with auto-detection
+│   ├── logger.py           # Mandatory security logging
+│   ├── path_helpers.py     # Categories constants (NEW)
+│   ├── rest_api_helpers.py # REST client
+│   └── script_runner.py    # Script initialization
+├── config/                 
+│   ├── templates/          # Example configs to copy
+│   ├── {org}-{env}-config.json
+│   ├── {org}-{env}-config-secrets.json
+│   ├── logging-config.json         # MANDATORY
+│   └── log-redaction-patterns.json # MANDATORY
+├── schemas/
+│   └── org-env-config-schema.json  # Validates all configs
+├── output/                 # Generated files
 ├── logs/                   # Log files (gitignored)
-└── ai/                     # AI assistance
-    ├── prompts/            # AI prompt templates
-    └── decided/            # Architecture Decision Records
-
-## Core Patterns
-
-### 1. Standard Script Structure
-Every script follows this pattern:
-
-```python
-# src/my_script.py
-from utils.logger import setup_logger
-from utils.script_runner import parse_args_and_load_config
-from utils.load_n_save import TxoDataHandler
-from utils.exceptions import HelpfulError
-
-logger = setup_logger()
-data_handler = TxoDataHandler()
-
-def main():
-    config = parse_args_and_load_config("My script description")
-    logger.info(f"Starting {config['_org_id']}-{config['_env_type']}")
-    
-    # Your code here
-    # config['_token'] is automatically injected if auth is needed
-    
-if __name__ == "__main__":
-    main()
+└── data/                   # Input data files
 ```
 
-### 2. Error Handling with HelpfulError
-Never show stack traces to users. Use HelpfulError:
+## Configuration Files
 
-```python
-from utils.exceptions import HelpfulError
+### Required Files (Script exits if missing)
 
-if not data_handler.exists("config", filename):
-    raise HelpfulError(
-        what_went_wrong="Config file 'settings.json' not found",
-        how_to_fix="Create the file in config/ directory",
-        example="Copy config/example.json to config/settings.json"
-    )
-```
-
-### 3. Intelligent Save Pattern
-The `save()` method auto-detects type from data and extension:
-
-```python
-# JSON (auto-handles Decimal types)
-data_handler.save({"amount": Decimal("99.99")}, "output", "data.json")
-
-# CSV from DataFrame
-data_handler.save(df, "output", "report.csv", index=False)
-
-# Excel from DataFrame  
-data_handler.save(df, "output", "report.xlsx", sheet_name="Results")
-
-# Plain text
-data_handler.save("Report content", "output", "report.txt")
-```
-
-### 4. Configuration Philosophy
-**Hard fail on missing required config** - no silent errors:
-
-```python
-# Required config - KeyError if missing (GOOD)
-api_url = config['global']['api-base-url']  
-
-# Optional API response - None if missing (GOOD)
-email = response.get('email')
-
-# NEVER do soft fail on config (BAD)
-api_url = config.get('global', {}).get('api-base-url', 'default')  # NO!
-```
-
-## Configuration Management
-
-### ⚠️ Critical Rule: Schema Must Match Config
-
-**EVERY configuration change requires updating the JSON schema!**
-
-When you add/modify configuration:
-1. Update your `config/{org}-{env}-config.json`
-2. **IMMEDIATELY** update `schemas/org-env-config-schema.json`
-3. Use kebab-case for all keys: `"my-new-setting"`
-4. Document the purpose in the schema description
-
-### Configuration Structure
-
+#### 1. Main Config: `config/{org}-{env}-config.json`
 ```json
 {
   "global": {
     "api-base-url": "https://api.example.com",
     "api-version": "v2",
-    "tenant-id": "your-tenant-id",
-    "client-id": "your-client-id",
-    "oauth-scope": "https://api.example.com/.default"
+    "tenant-id": "",  // Empty for non-API scripts
+    "client-id": "",  // Empty for non-API scripts
+    "oauth-scope": "" // Empty for non-API scripts
   },
   "script-behavior": {
     "api-delay-seconds": 1,
     "api-timeouts": {
       "rest-timeout-seconds": 60,
-      "max-retries": 3,
-      "backoff-factor": 2.0,
       "async-max-wait": 300,
       "async-poll-interval": 5
     },
     "retry-strategy": {
-      "max-retries": 3,
-      "backoff-factor": 2.0
+      "max-retries": 5,
+      "backoff-factor": 3.0
     },
     "jitter": {
       "min-factor": 0.8,
       "max-factor": 1.2
     },
     "rate-limiting": {
-      "enabled": true,
+      "enabled": false,
       "calls-per-second": 10,
       "burst-size": 1
     },
     "circuit-breaker": {
-      "enabled": true,
+      "enabled": false,
       "failure-threshold": 5,
       "timeout-seconds": 60
     },
     "batch-handling": {
-      "read-batch-size": 100,
-      "update-batch-size": 50
+      "read-batch-size": 20,
+      "update-batch-size": 10
     }
   }
 }
 ```
 
-### Secrets Management (Never Commit!)
+#### 2. Logging: `config/logging-config.json`
+Controls console (INFO+) and file (DEBUG+) logging. MUST exist.
 
-Create `config/{org}-{env}-config-secrets.json` (gitignored):
+#### 3. Redaction: `config/log-redaction-patterns.json`
+Defines patterns to redact from logs. MUST exist for security.
 
+### Optional: Secrets File (gitignored)
+`config/{org}-{env}-config-secrets.json`:
 ```json
 {
-  "client-secret": "oauth-secret-here",
-  "az-token": "fallback-bearer-token",
-  "api-key": "additional-api-key"
+  "client-secret": "oauth-secret",
+  "az-token": "Bearer eyJ...",
+  "api-key": "sk-..."
 }
 ```
+Injected with underscore: `config['_client_secret']`, `config['_az_token']`
 
-Secrets are automatically injected with underscore prefix:
-- `client-secret` → `config['_client_secret']`
-- `az-token` → `config['_az_token']`
+## Standard Script Template
 
-## V2.1 Resilience Features
-
-### Rate Limiting
-Prevents API bans by throttling requests:
+### Local Processing Script (No Auth)
 ```python
-api = create_rest_api(config)  # Rate limiting applied automatically
-# Calls throttled to configured calls-per-second
+# examples/process_data.py
+"""Process local data files - no authentication needed."""
+
+from typing import Dict, Any
+from datetime import datetime, timezone
+
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.load_n_save import TxoDataHandler
+from utils.path_helpers import Categories
+from utils.exceptions import HelpfulError
+
+logger = setup_logger()
+data_handler = TxoDataHandler()
+
+def main():
+    # No token needed (the default)
+    config = parse_args_and_load_config("Process local data")
+    
+    org_id = config['_org_id']
+    env_type = config['_env_type']
+    logger.info(f"Starting for {org_id}-{env_type}")
+    
+    # Load data
+    data = data_handler.load(Categories.DATA, "input.csv")
+    
+    # Process...
+    
+    # Save with timestamp
+    utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+    filename = f"{org_id}-{env_type}-results_{utc}.xlsx"
+    data_handler.save(data, Categories.OUTPUT, filename)
+
+if __name__ == "__main__":
+    main()
 ```
 
-### Circuit Breaker
-Stops cascade failures when APIs are down:
-- Opens after 5 consecutive failures
-- Fails fast for 60 seconds
-- Attempts to close after timeout
-
-### Async Operations (202 Accepted)
-Handles long-running operations transparently:
+### API Integration Script (Needs Auth)
 ```python
-result = api.post("/long-operation", data)
-# Automatically:
-# - Detects 202 Accepted response
-# - Polls Location header
-# - Respects Retry-After header
-# - Returns final result when ready
+# examples/sync_api.py
+"""Sync with external API - requires authentication."""
+
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.api_factory import create_rest_api
+from utils.path_helpers import Categories
+
+logger = setup_logger()
+
+def main():
+    # Explicitly require token for API access
+    config = parse_args_and_load_config(
+        "API sync script",
+        require_token=True  # Required for API
+    )
+    
+    # Create API client (uses _token from config)
+    api = create_rest_api(config)
+    
+    # API operations...
+
+if __name__ == "__main__":
+    main()
 ```
 
-### Token Redaction
-Logger automatically redacts sensitive data:
-```python
-logger.info(f"Token: {token}")  # Logs: "Token: Bearer [REDACTED]"
-logger.debug(f"Password: {pwd}")  # Logs: "Password: [REDACTED]"
-```
+## Migration from v2.x
+
+### Breaking Changes
+
+1. **Path strings → Categories constants**
+   ```python
+   # Old (v2.x)
+   data_handler.load_json('config', 'settings.json')
+   
+   # New (v3.0)
+   data_handler.load_json(Categories.CONFIG, 'settings.json')
+   ```
+
+2. **Token required → optional by default**
+   ```python
+   # Old (v2.x) - token required by default
+   config = parse_args_and_load_config("Script")
+   
+   # New (v3.0) - token optional by default
+   config = parse_args_and_load_config("Script")  # No token
+   config = parse_args_and_load_config("Script", require_token=True)  # With token
+   ```
+
+3. **Flat → nested config structure**
+   ```json
+   // Old (v2.x)
+   "enable-rate-limiting": true,
+   "rate-limit-per-second": 10
+   
+   // New (v3.0)
+   "rate-limiting": {
+     "enabled": true,
+     "calls-per-second": 10,
+     "burst-size": 1
+   }
+   ```
+
+4. **Scripts location**
+   - Move scripts from `src/` to `examples/` or `tests/`
+
+5. **Mandatory config files**
+   - Must have `logging-config.json`
+   - Must have `log-redaction-patterns.json`
+   - No defaults - script exits if missing
 
 ## Best Practices
 
-1. **ALWAYS update schema** when changing config structure
-2. **Never use `print()`** - Use logger for all output
-3. **Never hardcode paths** - Use `get_path()` helper
-4. **Always include type hints** - Better IDE support
-5. **Pass entire config dict** - Not individual parameters
-6. **Use HelpfulError** - Clear, actionable error messages
-7. **Hard fail on config** - No silent configuration errors
-8. **Log extensively** - DEBUG for details, INFO for milestones
+### ✅ DO
+- Use Categories constants for all paths
+- Let config access hard-fail (no `.get()` for required keys)
+- Use `save()` for all file types (auto-detection)
+- Include UTC timestamps in output filenames
+- Use HelpfulError for user-facing errors
+- Set `require_token=True` ONLY for API scripts
+
+### ❌ DON'T
+- Use string literals for paths (`'config'`, `'output'`)
+- Require tokens for local processing scripts
+- Use soft defaults for configuration
+- Use `print()` - always use logger
+- Build paths manually - use `get_path()`
 
 ## Common Commands
 
 ```bash
-# Run the try-me script (start here!)
-python src/try-me-script.py demo test
+# Run example script (no auth needed)
+python examples/try-me-script.py demo test
 
-# Run with different org/env
-python src/try-me-script.py mycompany prod
+# Run with custom org/env
+python examples/script.py mycompany prod
 
-# Optional flags
-python src/script.py demo test --no-token      # Skip authentication
-python src/script.py demo test --debug          # Enable debug logging
-python src/script.py demo test --no-validation  # Skip schema validation
+# Test all features
+python tests/test_features.py demo test
 
-# Test all v2.1 features
-python src/test_v2_features.py demo test
+# Debug mode (if configured)
+DEBUG_LOGGING=1 python examples/script.py demo test
 ```
-
-## PyCharm Setup (Recommended)
-
-1. Open project in PyCharm
-2. PyCharm auto-detects `pyproject.toml`
-3. Let it create virtual environment
-4. To run scripts with arguments:
-   - Right-click script → Modify Run Configuration
-   - Add parameters: `demo test`
-   - Click Run
 
 ## Troubleshooting
 
 ### Config File Not Found
 ```
-❌ Problem: Configuration file 'demo-test-config.json' not found
-✅ Solution: Create the file in config/ directory
-📝 Example: Copy config/example.json to config/demo-test-config.json
+CRITICAL CONFIGURATION ERROR
+Configuration file not found!
+```
+**Solution**: Copy templates from `config/templates/`
+
+### Token Required But Not Configured
+```
+❌ Problem: Token required but OAuth config incomplete
+✅ Solution: Either configure OAuth or use require_token=False
 ```
 
-### Schema Validation Failed
+### Invalid Category
 ```
-❌ Problem: Configuration doesn't match schema
-✅ Solution: Check schemas/org-env-config-schema.json for required fields
-📝 Example: Ensure all required sections exist with correct structure
+ValueError: Invalid category 'config'. Use Categories.* constants
 ```
-
-### Rate Limit Hit
-Enable rate limiting in config to prevent this:
-```json
-"rate-limiting": {
-  "enabled": true,
-  "calls-per-second": 5
-}
-```
+**Solution**: Import and use `Categories.CONFIG` instead of `'config'`
 
 ## Documentation
 
-- **[In-Depth Guide](in-depth-readme.md)** - Comprehensive pattern documentation
 - **[Architecture Decisions](ai/decided/adr-records.md)** - Why we built it this way
+- **[In-Depth Guide](in-depth-readme.md)** - Comprehensive documentation
 - **[Module Dependencies](module-dependency-diagram.md)** - Visual architecture
-- **AI Assistance** - Upload `ai/prompts/txo-xml-prompt-v3.1.xml` to Claude
-
-## Migration from v1.x
-
-See [Migration Guide](docs/migration-v1-to-v2.md) for upgrading existing projects.
-
-Key changes in v2.1:
-- Config structure is now nested (rate-limiting, circuit-breaker as objects)
-- All config access uses hard-fail philosophy
-- HelpfulError replaces generic exceptions
-- Token redaction is automatic
-- Rate limiting and circuit breakers are built-in
-
-## Contributing
-
-1. Follow established patterns
-2. **Update JSON schema for ANY config changes**
-3. Use HelpfulError for user-facing errors
-4. Add type hints and docstrings
-5. Test with both test and prod configurations
-6. Create ADR for significant changes
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
+- **AI Assistance** - Upload `ai/prompts/txo-xml-prompt-v3.0.xml` to Claude/GPT-4
 
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/tentixo/txo-python-template/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/tentixo/txo-python-template/discussions)
-- **Template Version**: v2.1.0
+- **Template Version**: v3.0.0
 - **Python Required**: 3.10+ (3.13+ recommended)
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
