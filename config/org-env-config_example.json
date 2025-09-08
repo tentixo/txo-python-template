@@ -24,12 +24,12 @@
       "max-factor": 1.2
     },
     "rate-limiting": {
-      "enabled": true,
+      "enabled": false,
       "calls-per-second": 10,
       "burst-size": 1
     },
     "circuit-breaker": {
-      "enabled": true,
+      "enabled": false,
       "failure-threshold": 5,
       "timeout-seconds": 60
     },
@@ -38,16 +38,8 @@
       "update-batch-size": 10,
       "vat-batch-size": 10
     },
-    "enable-progress-bars": false
-  },
-  "environments": {
-    "test": {
-      "api-endpoint": "https://test-api.example.com",
-      "verify-ssl": true
-    },
-    "prod": {
-      "api-endpoint": "https://api.example.com",
-      "verify-ssl": true
-    }
+    "enable-progress-bars": false,
+    "debug-mode": false,
+    "verbose-logging": false
   }
 }

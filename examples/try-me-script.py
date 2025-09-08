@@ -1,4 +1,4 @@
-# src/try-me-script.py
+# examples/try-me-script.py
 """
 Try Me First! - Simple script to test TXO Python Template setup
 

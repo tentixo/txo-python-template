@@ -22,8 +22,8 @@
       },
       {
         "name": "client-secret-json",
-        "pattern": "\"client_secret\":\\s*\"[^\"]*\"",
-        "replacement": "\"client_secret\": \"[REDACTED]\"",
+        "pattern": "\"client-secret\":\\s*\"[^\"]*\"",
+        "replacement": "\"client-secret\": \"[REDACTED]\"",
         "description": "Client secrets in JSON"
       },
       {

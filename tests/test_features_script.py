@@ -1,4 +1,4 @@
-# test/test_v2_features.py
+# tests/test_features.py
 """
 Comprehensive test for v2.0 refactored features.
 
@@ -194,10 +194,11 @@ def test_api_factory(config: Dict[str, Any]) -> None:
     logger.info("=" * 50)
     logger.info("TEST 5: API Factory")
     logger.info("=" * 50)
+    has_token = config.get("_token") is not None
 
     # Test 1: Create API with config
     try:
-        api = create_rest_api(config)
+        api = create_rest_api(config, require_auth=has_token)
 
         # Check features
         if api.rate_limiter:
@@ -224,7 +225,7 @@ def test_api_factory(config: Dict[str, Any]) -> None:
     # Test 2: Context manager
     try:
         with ApiManager(config) as manager:
-            manager.get_rest_api()
+            manager.get_rest_api(require_auth=has_token)
             logger.info("✅ API created with context manager")
             # API will be closed automatically
     except Exception as e:
