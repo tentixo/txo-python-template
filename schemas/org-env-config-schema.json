@@ -1,7 +1,7 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "TXO Organization Environment Configuration",
-  "description": "Configuration schema for TXO Python Template v2.0",
+  "description": "Configuration schema for TXO Python Template v2.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,12 +10,10 @@
   ],
   "properties": {
     "global": {
+      "description": "Global settings shared across scripts",
       "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "api-base-url",
-        "api-version"
-      ],
+      "additionalProperties": true,
+      "required": [],
       "properties": {
         "api-base-url": {
           "type": "string",
@@ -28,239 +26,179 @@
         },
         "tenant-id": {
           "type": "string",
-          "description": "Azure tenant ID for OAuth (can be empty string)"
+          "description": "Azure AD tenant ID (empty for non-API scripts)"
         },
         "client-id": {
           "type": "string",
-          "description": "Application client ID for OAuth (can be empty string)"
+          "description": "Azure AD application client ID (empty for non-API scripts)"
         },
         "oauth-scope": {
           "type": "string",
-          "description": "OAuth scope for authentication (can be empty string)"
+          "description": "OAuth scope for authentication (empty for non-API scripts)"
         }
       }
     },
     "script-behavior": {
+      "description": "Script execution behavior settings",
       "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "api-timeouts",
-        "retry-strategy",
-        "jitter",
-        "rate-limiting",
-        "circuit-breaker",
-        "batch-handling"
-      ],
+      "additionalProperties": true,
       "properties": {
         "api-delay-seconds": {
           "type": "number",
           "minimum": 0,
-          "maximum": 60,
-          "description": "Delay between API operations"
+          "description": "Delay between API calls in seconds"
         },
         "api-timeouts": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "rest-timeout-seconds"
-          ],
           "properties": {
             "rest-timeout-seconds": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 300,
-              "description": "REST API timeout in seconds"
+              "default": 60
             },
             "soap-timeout-seconds": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 300,
-              "description": "SOAP API timeout in seconds"
+              "default": 120
             },
             "wsdl-timeout-seconds": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 300,
-              "description": "WSDL fetch timeout in seconds"
+              "default": 60
             },
             "async-max-wait": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 3600,
-              "description": "Maximum wait for async operations in seconds"
+              "default": 300,
+              "description": "Maximum wait time for async operations"
             },
             "async-poll-interval": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 60,
-              "description": "Polling interval for async operations in seconds"
+              "default": 5,
+              "description": "Polling interval for async operations"
             }
           }
         },
         "retry-strategy": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "max-retries",
-            "backoff-factor"
-          ],
           "properties": {
             "max-retries": {
               "type": "integer",
               "minimum": 0,
               "maximum": 10,
-              "description": "Maximum number of retry attempts"
+              "default": 5
             },
             "backoff-factor": {
               "type": "number",
-              "minimum": 0.1,
-              "maximum": 10,
-              "description": "Exponential backoff factor for retries"
+              "minimum": 1.0,
+              "maximum": 10.0,
+              "default": 3.0
             }
           }
         },
         "jitter": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "min-factor",
-            "max-factor"
-          ],
           "properties": {
             "min-factor": {
               "type": "number",
               "minimum": 0.1,
               "maximum": 1.0,
-              "description": "Minimum jitter factor"
+              "default": 0.8
             },
             "max-factor": {
               "type": "number",
               "minimum": 1.0,
               "maximum": 2.0,
-              "description": "Maximum jitter factor"
+              "default": 1.2
             }
           }
         },
         "rate-limiting": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "enabled",
-            "calls-per-second",
-            "burst-size"
-          ],
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Whether rate limiting is enabled"
+              "default": false
             },
             "calls-per-second": {
               "type": "number",
               "minimum": 0.1,
               "maximum": 1000,
-              "description": "Maximum calls per second"
+              "default": 10
             },
             "burst-size": {
-              "type": "number",
+              "type": "integer",
               "minimum": 1,
               "maximum": 100,
-              "description": "Maximum burst capacity (1 = no burst)"
+              "default": 1
             }
           }
         },
         "circuit-breaker": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "enabled",
-            "failure-threshold",
-            "timeout-seconds"
-          ],
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Whether circuit breaker is enabled"
+              "default": false
             },
             "failure-threshold": {
               "type": "integer",
               "minimum": 1,
               "maximum": 100,
-              "description": "Number of failures before circuit opens"
+              "default": 5
             },
             "timeout-seconds": {
               "type": "integer",
               "minimum": 1,
               "maximum": 600,
-              "description": "Seconds before attempting to close circuit"
+              "default": 60
             }
           }
         },
         "batch-handling": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "read-batch-size"
-          ],
           "properties": {
             "read-batch-size": {
               "type": "integer",
               "minimum": 1,
               "maximum": 1000,
-              "description": "Number of items to read per batch"
+              "default": 20
             },
             "update-batch-size": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 1000,
-              "description": "Number of items to update per batch"
+              "maximum": 100,
+              "default": 10
             },
             "vat-batch-size": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 1000,
-              "description": "Number of VAT items to process per batch"
+              "maximum": 100,
+              "default": 10
             }
           }
         },
         "enable-progress-bars": {
           "type": "boolean",
-          "description": "Whether to show progress bars for long operations"
-        }
-      }
-    },
-    "environments": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "test": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "api-endpoint": {
-              "type": "string",
-              "format": "uri",
-              "description": "Test environment API endpoint"
-            },
-            "verify-ssl": {
-              "type": "boolean",
-              "description": "Whether to verify SSL certificates"
-            }
-          }
+          "default": false,
+          "description": "Show progress bars for long operations"
         },
-        "prod": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "api-endpoint": {
-              "type": "string",
-              "format": "uri",
-              "description": "Production environment API endpoint"
-            },
-            "verify-ssl": {
-              "type": "boolean",
-              "description": "Whether to verify SSL certificates"
-            }
-          }
+        "debug-mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug output"
+        },
+        "verbose-logging": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose logging"
         }
       }
     }

@@ -1,0 +1,519 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<txo_python_template version="3.0">
+  <metadata>
+    <purpose>Guide AI assistants to generate production-ready code following TXO v3.0 patterns</purpose>
+    <last_updated>2025-01-16</last_updated>
+    <python_version>3.10+ required, 3.13+ recommended</python_version>
+    <template_version>3.0.0</template_version>
+    <key_features>
+      <feature>MANDATORY configuration files (no defaults)</feature>
+      <feature>Type-safe Dir constants for path management</feature>
+      <feature>Token is OPTIONAL by default</feature>
+      <feature>Smart save() with auto type detection</feature>
+      <feature>Thread-safe lazy loading</feature>
+      <feature>Nested config structure</feature>
+      <feature>Hard-fail philosophy throughout</feature>
+    </key_features>
+  </metadata>
+
+  <ai_behavior>
+    <instruction priority="critical">
+      When user asks for help, FIRST understand the requirement:
+      - What data source and format?
+      - What's the expected output?
+      - Is authentication needed? (Most scripts DON'T need it)
+      - What error scenarios should be handled?
+    </instruction>
+    
+    <instruction priority="critical">
+      CONFIGURATION IS MANDATORY - NO DEFAULTS:
+      1. Config files MUST exist (can copy from templates)
+      2. logging-config.json MUST exist
+      3. log-redaction-patterns.json MUST exist
+      4. Schema validation is ALWAYS on
+      5. Use NESTED structure for rate-limiting and circuit-breaker
+    </instruction>
+    
+    <instruction priority="critical">
+      TOKEN IS OPTIONAL BY DEFAULT:
+      - Most scripts DON'T need authentication
+      - Use require_token=False (the default)
+      - Only set require_token=True for API scripts
+    </instruction>
+    
+    <instruction priority="critical">
+      USE Dir CONSTANTS for paths:
+      - from utils.path_helpers import Dir
+      - Use Dir.CONFIG, Dir.OUTPUT, etc.
+      - NEVER use string literals like 'config' or 'output'
+    </instruction>
+  </ai_behavior>
+
+  <critical_patterns>
+    <pattern name="script_structure" enforcement="mandatory">
+      ```python
+      # examples/script_name.py  ← Note: examples/ or tests/ directory
+      """Docstring with purpose and usage."""
+      
+      from typing import Dict, Any
+      from datetime import datetime, timezone
+      
+      from utils.logger import setup_logger
+      from utils.script_runner import parse_args_and_load_config
+      from utils.load_n_save import TxoDataHandler
+      from utils.path_helpers import Dir  # ← ALWAYS import
+      from utils.exceptions import HelpfulError
+      
+      logger = setup_logger()  # Will exit(1) if configs missing
+      data_handler = TxoDataHandler()
+      
+      def main():
+          # Token is OPTIONAL by default
+          config = parse_args_and_load_config(
+              "Description",
+              require_token=False  # ← DEFAULT for most scripts
+          )
+          logger.info(f"Starting for {config['_org_id']}-{config['_env_type']}")
+      ```
+    </pattern>
+    
+    <pattern name="dir_usage" enforcement="mandatory">
+      ```python
+      # ALWAYS use Dir constants, NEVER strings
+      from utils.path_helpers import Dir
+      
+      # CORRECT:
+      config = data_handler.load_json(Dir.CONFIG, 'settings.json')
+      data_handler.save(results, Dir.OUTPUT, filename)
+      
+      # WRONG - NEVER DO THIS:
+      config = data_handler.load_json('config', 'settings.json')  # NO!
+      data_handler.save(results, "output", filename)  # NO!
+      ```
+    </pattern>
+    
+    <pattern name="smart_save" enforcement="mandatory">
+      ```python
+      # Use save() for EVERYTHING - it auto-detects type!
+      
+      # JSON (handles Decimal automatically)
+      data_handler.save(dict_data, Dir.OUTPUT, "data.json")
+      
+      # DataFrame to CSV
+      data_handler.save(dataframe, Dir.OUTPUT, "data.csv")
+      
+      # DataFrame to Excel
+      data_handler.save(dataframe, Dir.OUTPUT, "data.xlsx")
+      
+      # Plain text
+      data_handler.save("text content", Dir.OUTPUT, "report.txt")
+      
+      # YAML (if extension is .yaml/.yml)
+      data_handler.save(config_dict, Dir.CONFIG, "settings.yaml")
+      ```
+    </pattern>
+    
+    <pattern name="hard_fail_config" enforcement="mandatory">
+      ```python
+      # REQUIRED config - hard fail if missing
+      api_url = config['global']['api-base-url']  # KeyError = good
+      
+      # Nested structure - ALL required when section exists
+      rate_config = config["script-behavior"]["rate-limiting"]
+      enabled = rate_config["enabled"]  # Hard fail
+      calls_per_second = rate_config["calls-per-second"]  # Hard fail
+      
+      # Optional API responses use get()
+      email = api_response.get('email')  # None if missing = OK
+      ```
+    </pattern>
+    
+    <pattern name="token_optional" enforcement="mandatory">
+      ```python
+      # Most scripts DON'T need tokens
+      config = parse_args_and_load_config(
+          "My local data processing script"
+          # require_token defaults to False
+      )
+      
+      # Only API scripts need tokens
+      config = parse_args_and_load_config(
+          "Business Central sync",
+          require_token=True  # Explicitly required
+      )
+      ```
+    </pattern>
+  </critical_patterns>
+
+  <v3_changes>
+    <change name="dir_constants">
+      Path management now uses type-safe constants:
+      - Dir.CONFIG instead of 'config'
+      - Dir.OUTPUT instead of 'output'
+      - Dir.LOGS instead of 'logs'
+      - Full list: CONFIG, DATA, FILES, GENERATED_PAYLOADS, LOGS, OUTPUT, PAYLOADS, SCHEMAS, TMP, WSDL, AI
+      
+      IDE benefits:
+      - Autocomplete support
+      - Type checking at development time
+      - No typos possible
+    </change>
+    
+    <change name="token_optional_default">
+      Authentication is OPTIONAL by default:
+      - require_token=False is the default
+      - Most scripts work without any OAuth setup
+      - Config files can be minimal (copy from templates)
+      - Only set require_token=True for API scripts
+    </change>
+    
+    <change name="mandatory_configs">
+      Three MANDATORY configuration files (no defaults):
+      1. {org}-{env}-config.json - Main config
+      2. logging-config.json - Logging setup
+      3. log-redaction-patterns.json - Security patterns
+      
+      Script will exit(1) if ANY are missing or invalid.
+      Templates provided in config/templates/
+    </change>
+    
+    <change name="smart_save_load">
+      Simplified I/O with auto-detection:
+      - save() detects type from data + extension
+      - load() detects format from extension
+      - No need for save_json(), save_text(), etc.
+      - Thread-safe lazy loading of pandas/yaml
+    </change>
+    
+    <change name="nested_config">
+      Configuration now uses nested objects:
+      ```json
+      "rate-limiting": {
+        "enabled": true,
+        "calls-per-second": 10,
+        "burst-size": 1
+      }
+      ```
+      Not flat keys like "enable-rate-limiting"
+    </change>
+  </v3_changes>
+
+  <configuration_structure>
+    <main_config>
+      File: config/{org_id}-{env_type}-config.json
+      ```json
+      {
+        "global": {
+          "api-base-url": "https://api.example.com",
+          "api-version": "v2",
+          "tenant-id": "",
+          "client-id": "",
+          "oauth-scope": ""
+        },
+        "script-behavior": {
+          "api-delay-seconds": 1,
+          "api-timeouts": {
+            "rest-timeout-seconds": 60,
+            "async-max-wait": 300,
+            "async-poll-interval": 5
+          },
+          "retry-strategy": {
+            "max-retries": 5,
+            "backoff-factor": 3.0
+          },
+          "jitter": {
+            "min-factor": 0.8,
+            "max-factor": 1.2
+          },
+          "rate-limiting": {
+            "enabled": false,
+            "calls-per-second": 10,
+            "burst-size": 1
+          },
+          "circuit-breaker": {
+            "enabled": false,
+            "failure-threshold": 5,
+            "timeout-seconds": 60
+          },
+          "batch-handling": {
+            "read-batch-size": 20,
+            "update-batch-size": 10
+          }
+        }
+      }
+      ```
+    </main_config>
+    
+    <secrets_config>
+      File: config/{org_id}-{env_type}-config-secrets.json (OPTIONAL, gitignored)
+      ```json
+      {
+        "client-secret": "oauth-secret",
+        "az-token": "Bearer eyJ...",
+        "api-key": "sk-..."
+      }
+      ```
+      Injected as: config['_client_secret'], config['_az_token'], config['_api_key']
+    </secrets_config>
+  </configuration_structure>
+
+  <project_structure>
+    ```
+    txo-python-template/
+    ├── ai/                 # Files to and from ai
+    ├── config/
+    │   ├── templates/      # Example configs to copy
+    │   ├── {org}-{env}-config.json
+    │   ├── logging-config.json        # MANDATORY
+    │   └── log-redaction-patterns.json # MANDATORY
+    ├── data/               # Input data files
+    ├── examples/           # Example scripts (try_me_script.py)
+    ├── files/              # Files from elsewhere used as-is
+    ├── generated_payloads/ # For generated payloads to validate before sending
+    ├── logs/               # Log files (gitignored)
+    ├── output/             # Generated files
+    ├── payloads/           # Ready to send payloads
+    ├── schemas/
+    │   └── org-env-config-schema.json
+    ├── src/                # Source code: Your main scripts
+    ├── tests/              # Test scripts (test_features.py)
+    ├── utils/              # Helper modules (DON'T MODIFY)
+    │   ├── api_common.py       # Rate limiting, circuit breaker
+    │   ├── api_factory.py      # API client creation
+    │   ├── config_loader.py    # Config validation
+    │   ├── exceptions.py       # HelpfulError pattern
+    │   ├── load_n_save.py      # Smart save() and load()
+    │   ├── logger.py            # Mandatory security logging
+    │   ├── path_helpers.py      # Dir constants
+    │   ├── rest_api_helpers.py # REST client
+    │   └── script_runner.py    # Token OPTIONAL by default
+    └── wsdl/               # WSDL files
+    ```
+  </project_structure>
+
+  <helper_modules>
+    <module name="utils.path_helpers">
+      Dir - Type-safe directory constants:
+      - Dir.CONFIG, Dir.OUTPUT, Dir.LOGS, etc.
+      
+      get_path(directory: Dir, filename: str) → Path
+      - MUST use Dir constants, not strings
+      - Hard fails on invalid directory
+    </module>
+    
+    <module name="utils.script_runner">
+      parse_args_and_load_config(description, require_token=False)
+      - Token is OPTIONAL by default (False)
+      - Config files are MANDATORY (will exit if missing)
+      - Always validates against schema
+      - Returns config with _org_id, _env_type, _token injected
+    </module>
+    
+    <module name="utils.load_n_save">
+      TxoDataHandler() - Smart I/O with type detection:
+      
+      save(data, directory: Dir, filename, **kwargs)
+      - Auto-detects type from data + extension
+      - Use for ALL file types
+      
+      load(directory: Dir, filename, **kwargs)
+      - Auto-detects format from extension
+      - Routes to appropriate loader
+      
+      Specialized methods still available:
+      - load_json(), load_excel(), load_csv(), etc.
+      - All require Dir constants, not strings
+    </module>
+    
+    <module name="utils.logger">
+      setup_logger() → TxoLogger
+      - WILL EXIT(1) if configs missing:
+        - logging-config.json
+        - log-redaction-patterns.json
+      - No defaults, no fallbacks
+      - UTC timestamps
+      - Automatic token redaction with underscore prefix support
+    </module>
+    
+    <module name="utils.api_factory">
+      create_rest_api(config, require_auth=True) → TxoRestAPI
+      - require_auth=True by default (for backward compat)
+      - Set require_auth=False for public APIs
+      - Includes rate limiting, circuit breaker
+      - Handles 202 Accepted automatically
+    </module>
+  </helper_modules>
+
+  <common_patterns>
+    <pattern name="minimal_script">
+      ```python
+      # examples/process_local_data.py
+      """Process local CSV files - no API needed."""
+      
+      from utils.logger import setup_logger
+      from utils.script_runner import parse_args_and_load_config
+      from utils.load_n_save import TxoDataHandler
+      from utils.path_helpers import Dir
+      
+      logger = setup_logger()
+      data_handler = TxoDataHandler()
+      
+      def main():
+          # No token needed for local processing
+          config = parse_args_and_load_config("Process CSV files")
+          
+          # Load data using Dir
+          df = data_handler.load(Dir.DATA, "input.csv")
+          
+          # Process...
+          
+          # Save with auto-detection
+          utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+          filename = f"{config['_org_id']}-{config['_env_type']}-results_{utc}.xlsx"
+          data_handler.save(df, Dir.OUTPUT, filename)
+      
+      if __name__ == "__main__":
+          main()
+      ```
+    </pattern>
+    
+    <pattern name="api_script">
+      ```python
+      # examples/sync_with_api.py
+      """Sync with external API - needs authentication."""
+      
+      from utils.logger import setup_logger
+      from utils.script_runner import parse_args_and_load_config
+      from utils.api_factory import create_rest_api
+      from utils.path_helpers import Dir
+      
+      logger = setup_logger()
+      
+      def main():
+          # Explicitly require token for API access
+          config = parse_args_and_load_config(
+              "Sync with API",
+              require_token=True  # ← Explicit for API scripts
+          )
+          
+          # Create API client
+          api = create_rest_api(config)  # Uses token from config
+          
+          # Make API calls...
+          
+      if __name__ == "__main__":
+          main()
+      ```
+    </pattern>
+  </common_patterns>
+
+  <common_mistakes>
+    <mistake>
+      Using string literals for paths:
+      ```python
+      # WRONG
+      data = data_handler.load_json('config', 'settings.json')
+      
+      # RIGHT
+      data = data_handler.load_json(Dir.CONFIG, 'settings.json')
+      ```
+    </mistake>
+    
+    <mistake>
+      Requiring token when not needed:
+      ```python
+      # WRONG - local script doesn't need token
+      config = parse_args_and_load_config("Process CSV", require_token=True)
+      
+      # RIGHT - token optional by default
+      config = parse_args_and_load_config("Process CSV")
+      ```
+    </mistake>
+    
+    <mistake>
+      Using specific save methods:
+      ```python
+      # OK but verbose
+      data_handler.save_json(data, Dir.OUTPUT, "data.json")
+      data_handler.save_text(text, Dir.OUTPUT, "report.txt")
+      
+      # BETTER - smart save
+      data_handler.save(data, Dir.OUTPUT, "data.json")
+      data_handler.save(text, Dir.OUTPUT, "report.txt")
+      ```
+    </mistake>
+    
+    <mistake>
+      Flat config structure:
+      ```python
+      # WRONG - old flat structure
+      "enable-rate-limiting": true,
+      "rate-limit-per-second": 10
+      
+      # RIGHT - nested structure
+      "rate-limiting": {
+        "enabled": true,
+        "calls-per-second": 10,
+        "burst-size": 1
+      }
+      ```
+    </mistake>
+    
+    <mistake>
+      Optional config files:
+      ```python
+      # WRONG - trying to have defaults
+      try:
+          config = load_config()
+      except FileNotFoundError:
+          config = {"default": "values"}
+      
+      # RIGHT - config MUST exist (can copy from templates)
+      config = parse_args_and_load_config("Script")  # Will exit if missing
+      ```
+    </mistake>
+  </common_mistakes>
+
+  <quick_reference>
+    <checklist>
+      □ Import Dir from path_helpers
+      □ Use Dir.* constants, never strings
+      □ Use save() for all file types (auto-detection)
+      □ Set require_token=False (or omit) for local scripts
+      □ Set require_token=True ONLY for API scripts
+      □ Ensure all 3 config files exist (can copy templates)
+      □ Use nested config structure for rate-limiting, circuit-breaker
+      □ Let config access hard-fail (no .get() for required)
+      □ Include UTC timestamp in output filenames
+      □ Use HelpfulError for user-facing errors
+    </checklist>
+    
+    <imports>
+      ```python
+      # Standard imports for any script
+      from typing import Dict, Any
+      from datetime import datetime, timezone
+      
+      from utils.logger import setup_logger
+      from utils.script_runner import parse_args_and_load_config
+      from utils.load_n_save import TxoDataHandler
+      from utils.path_helpers import Dir
+      from utils.exceptions import HelpfulError
+      
+      # Additional for API scripts
+      from utils.api_factory import create_rest_api
+      from utils.exceptions import ApiOperationError
+      ```
+    </imports>
+  </quick_reference>
+
+  <migration_notes>
+    For users of v2.x:
+    1. Replace all 'config', 'output', etc. with Dir.CONFIG, Dir.OUTPUT
+    2. Change to nested config structure (rate-limiting, circuit-breaker objects)
+    3. Default is now require_token=False (was True)
+    4. Use save() instead of save_json(), save_text(), etc.
+    5. Ensure logging-config.json and log-redaction-patterns.json exist
+    6. Move scripts to examples/ or tests/ directories
+  </migration_notes>
+</txo_python_template>

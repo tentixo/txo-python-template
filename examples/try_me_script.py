@@ -1,24 +1,24 @@
-# src/try-me-script.py
+# examples/try_me_script.py
 """
-Try Me First! - Simple script to test TXO Python Template setup
+Try Me First! - Simple script to test TXO Python Template v3.0 setup
 
-This script demonstrates core TXO patterns using GitHub's public API.
+This script demonstrates core TXO v3.0 patterns using GitHub's public API.
 No authentication or complex setup required - it just works!
 
 Usage:
-    python try-me-script.py <org_id> <env_type>
+    python try_me_script.py <org_id> <env_type>
 
 Example:
-    python try-me-script.py demo test
+    python try_me_script.py demo test
 
 What it does:
     1. Fetches top Python repositories from GitHub
     2. Saves results to output/demo-test-github_repos_{UTC}.json
-    3. Demonstrates logging, error handling, and file I/O patterns
+    3. Demonstrates v3.0 patterns: Dir constants, smart save(), no token needed
 
 Perfect for:
     - Testing your development environment
-    - Learning TXO patterns
+    - Learning TXO v3.0 patterns
     - Validating the template setup
 """
 
@@ -30,6 +30,7 @@ import requests
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.load_n_save import TxoDataHandler
+from utils.path_helpers import Dir  # v3.0: Type-safe directory constants
 from utils.exceptions import ApiOperationError, HelpfulError
 
 logger = setup_logger()
@@ -58,7 +59,7 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
     # GitHub search API endpoint
     url = "https://api.github.com/search/repositories"
-    
+
     logger.info("Fetching top Python repositories from GitHub...")
 
     try:
@@ -67,7 +68,7 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
             delay = config["script-behavior"]["api-delay-seconds"]
         except KeyError:
             delay = 1  # Default if entire script-behavior section is missing
-            
+
         if delay > 0:
             logger.debug(f"Waiting {delay}s before API call")
             time.sleep(delay)
@@ -77,7 +78,7 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
             timeout = config["global"]["timeout-seconds"]
         except KeyError:
             timeout = 30  # Default if not in global section
-            
+
         # Make the API request
         response = session.get(
             url,
@@ -94,17 +95,17 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
         if response.status_code == 403:
             remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
             reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
-            
+
             raise ApiOperationError(
                 f"GitHub rate limit hit! Remaining: {remaining}, "
                 f"Resets at: {reset_time}"
             )
 
         response.raise_for_status()
-        
+
         data = response.json()
         repos = data["items"]  # Hard fail if 'items' key missing
-        
+
         logger.info(f"Successfully fetched {len(repos)} repositories")
 
         # Extract and structure the data
@@ -139,7 +140,7 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
     """
-    Save repository data to output file.
+    Save repository data to output file using v3.0 patterns.
 
     Args:
         config: Configuration dictionary
@@ -156,24 +157,24 @@ def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
     utc_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
     org_id = config["_org_id"]  # Hard fail if missing
     env_type = config["_env_type"]  # Hard fail if missing
-    
+
     filename = f"{org_id}-{env_type}-github_repos_{utc_timestamp}.json"
 
     try:
-        # Save using intelligent save (auto-detects JSON from extension)
-        output_path = data_handler.save(repos, "output", filename, indent=2)
+        # v3.0: Use Dir.OUTPUT constant instead of string literal
+        output_path = data_handler.save(repos, Dir.OUTPUT, filename, indent=2)
         logger.info(f"✅ Saved {len(repos)} repositories to: {output_path}")
-        
+
         # Log file size for verification
         file_size = output_path.stat().st_size
         logger.debug(f"Output file size: {file_size:,} bytes")
-        
+
     except Exception as e:
         logger.error(f"Save operation failed: {e}")
         raise HelpfulError(
-            what_went_wrong=f"Could not save results to output/{filename}",
-            how_to_fix="Check that output/ directory exists and is writable",
-            example="Create the directory: mkdir output"
+            what_went_wrong=f"Could not save results to {Dir.OUTPUT}/{filename}",
+            how_to_fix=f"Check that {Dir.OUTPUT}/ directory exists and is writable",
+            example=f"Create the directory: mkdir {Dir.OUTPUT}"
         )
 
 
@@ -192,30 +193,30 @@ def display_summary(repos: List[Dict[str, Any]], elapsed_time: float) -> None:
     logger.info(f"API call duration: {elapsed_time:.2f} seconds")
     logger.info("")
     logger.info("Top 3 Python repositories by stars:")
-    
+
     for i, repo in enumerate(repos[:3], 1):
         logger.info(f"  {i}. {repo['full_name']}")
         logger.info(f"     ⭐ Stars: {repo['stars']:,}")
         logger.info(f"     📝 {repo['description'][:70]}...")
         logger.info("")
-    
+
     logger.info("=" * 60)
 
 
 def main():
-    """Main entry point demonstrating TXO patterns."""
-    # Load configuration WITHOUT token (public API doesn't need auth)
+    """Main entry point demonstrating TXO v3.0 patterns."""
+    # v3.0: Load configuration WITHOUT token (public API doesn't need auth)
     config = parse_args_and_load_config(
-        "Try Me Script - Test TXO Template with GitHub API",
-        require_token=False  # No authentication needed
+        "Try Me Script - Test TXO Template v3.0 with GitHub API",
+        require_token=False  # v3.0: Token optional by default
     )
 
-    # Extract org and env (hard fail if missing)
+    # Extract org and env (hard fail if missing - v3.0 philosophy)
     org_id = config["_org_id"]
     env_type = config["_env_type"]
-    
-    logger.info(f"🚀 Starting Try-Me script for {org_id}-{env_type}")
-    
+
+    logger.info(f"🚀 Starting Try-Me script (v3.0) for {org_id}-{env_type}")
+
     # Check for configuration
     if "script-behavior" in config:
         logger.debug("Using script-behavior configuration")
@@ -227,15 +228,16 @@ def main():
         start_time = time.time()
         repos = fetch_github_repos(config)
         elapsed = time.time() - start_time
-        
-        # Save the results
+
+        # Save the results using v3.0 patterns
         save_results(config, repos)
-        
+
         # Display summary
         display_summary(repos, elapsed)
-        
+
         logger.info(f"✅ Try-Me script completed successfully for {org_id}-{env_type}")
-        
+        logger.info("✅ TXO Template v3.0 is working correctly!")
+
     except ApiOperationError as e:
         logger.error(f"❌ API Error: {e}")
         logger.error("\nPossible causes:")
@@ -243,23 +245,23 @@ def main():
         logger.error("  2. GitHub API is temporarily down")
         logger.error("  3. Hit rate limit (wait a few minutes)")
         raise
-        
+
     except HelpfulError:
         # Re-raise to let script_runner handle the display
         raise
-        
+
     except Exception as e:
         logger.error(f"❌ Unexpected error: {e}", exc_info=True)
         raise HelpfulError(
             what_went_wrong=f"Script failed unexpectedly: {e}",
             how_to_fix="Check the logs for details or run with --debug",
-            example="python try-me-script.py demo test --debug"
+            example="python try_me_script.py demo test --debug"
         )
 
 
 if __name__ == "__main__":
     import sys
-    
+
     try:
         main()
     except KeyboardInterrupt:

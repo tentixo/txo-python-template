@@ -1,214 +1,255 @@
-# TXO Python Template v2.1 - In-Depth Guide
+# TXO Python Template v3.0 - In-Depth Guide
 
 ## Overview
 
-The TXO Python Template v2.1 is a production-ready framework that enforces consistent patterns across all Python scripts interacting with REST/OData APIs. It includes enterprise-grade features like automatic token redaction, rate limiting, circuit breakers, and async operation support.
+The TXO Python Template v3.0 is a production-ready framework that enforces consistent patterns across all Python scripts. It includes enterprise-grade features like automatic token redaction, rate limiting, circuit breakers, mandatory configuration, and type-safe path management.
 
-**Version**: 2.1.0  
+**Version**: 3.0.0  
 **Python**: 3.10+ required, 3.13+ recommended  
-**Philosophy**: Hard-fail on configuration, fail-fast on errors, clear guidance for users
+**Philosophy**: Hard-fail on configuration, fail-fast on errors, type-safe operations, clear guidance for users
 
 ## Table of Contents
-1. [Core Patterns](#core-patterns)
-2. [V2.1 Features](#v21-features)
-3. [Security Patterns](#security-patterns)
-4. [API Resilience Patterns](#api-resilience-patterns)
-5. [Error Handling Patterns](#error-handling-patterns)
-6. [Performance Patterns](#performance-patterns)
-7. [Configuration Management](#configuration-management)
-8. [Helper Modules Reference](#helper-modules-reference)
-9. [Script Development Guide](#script-development-guide)
-10. [Best Practices](#best-practices)
-11. [Common Pitfalls](#common-pitfalls)
-12. [Troubleshooting](#troubleshooting)
+1. [Core v3.0 Patterns](#core-v30-patterns)
+2. [Security Enhancements](#security-enhancements)
+3. [API Resilience Features](#api-resilience-features)
+4. [Error Handling System](#error-handling-system)
+5. [Performance Optimizations](#performance-optimizations)
+6. [Configuration Management](#configuration-management)
+7. [Helper Modules Reference](#helper-modules-reference)
+8. [Script Development Guide](#script-development-guide)
+9. [Best Practices](#best-practices)
+10. [Common Pitfalls](#common-pitfalls)
+11. [Troubleshooting](#troubleshooting)
+12. [Migration from v2.x](#migration-from-v2x)
 
-## Core Patterns
+## Core v3.0 Patterns
 
-### 1. Mandatory Parameters Pattern
+### 1. Type-Safe Directory Constants (NEW)
 
-Every script MUST have `org_id` and `env_type` as first two arguments:
-
-```python
-# Always required
-python script.py <org_id> <env_type>
-
-# Examples
-python script.py acme prod
-python script.py demo test
-python script.py mycompany dev
-```
-
-This creates predictable naming:
-- Config: `acme-prod-config.json`
-- Secrets: `acme-prod-config-secrets.json`
-- Output: `acme-prod-report_2025-01-15T1430Z.xlsx`
-
-### 2. Hard-Fail Configuration Pattern
-
-**V2.1 Philosophy**: Configuration errors should fail immediately, not silently.
+**v3.0 Revolution**: Never use string literals for directories!
 
 ```python
-# ✅ CORRECT - Hard fail on missing config
-api_url = config['global']['api-base-url']  # KeyError if missing
-tenant = config['global']['tenant-id']      # Immediate failure
+from utils.path_helpers import Dir
 
-# ❌ WRONG - Soft fail with defaults
-api_url = config.get('global', {}).get('api-base-url', 'default')  # Silent bugs!
+# ✅ CORRECT - Type-safe, IDE autocomplete, no typos
+config = data_handler.load_json(Dir.CONFIG, 'settings.json')
+data_handler.save(results, Dir.OUTPUT, 'report.xlsx')
+path = get_path(Dir.LOGS, 'app.log')
 
-# ✅ CORRECT - Optional API response data
-email = response.get('email')  # None if missing is OK for API data
+# ❌ WRONG - String literals are error-prone
+config = data_handler.load_json('config', 'settings.json')  # NO!
 ```
 
-### 3. Configuration Injection Pattern
+Available Dir constants:
+- `Dir.CONFIG` - Configuration files
+- `Dir.DATA` - Input data files
+- `Dir.OUTPUT` - Generated output
+- `Dir.LOGS` - Log files
+- `Dir.FILES` - External files used as-is
+- `Dir.GENERATED_PAYLOADS` - Payloads for validation
+- `Dir.PAYLOADS` - Ready-to-send payloads
+- `Dir.SCHEMAS` - JSON schemas
+- `Dir.TMP` - Temporary files
+- `Dir.WSDL` - WSDL files
+- `Dir.AI` - AI-related files
 
-All configuration and derived values in a single dict:
+### 2. Token Optional by Default (CHANGED)
+
+**v3.0 Change**: Most scripts don't need authentication!
 
 ```python
-config = parse_args_and_load_config("Script description")
+# DEFAULT - No token needed for local processing
+config = parse_args_and_load_config("Process local data")
+# require_token=False is the default
 
-# Automatically injected:
-# config['_org_id']      - from command line
-# config['_env_type']    - from command line  
-# config['_token']       - from OAuth or secrets
-# config['_client_secret'] - from secrets file (if exists)
+# EXPLICIT - Only for API scripts
+config = parse_args_and_load_config(
+    "Sync with Business Central",
+    require_token=True  # Must be explicit for API access
+)
 ```
 
-Pass the entire config dict:
+### 3. Universal Smart Save (ENHANCED)
 
-```python
-# ✅ CORRECT
-def process_data(config: Dict[str, Any]) -> None:
-    org_id = config['_org_id']
-    api = create_rest_api(config)
-
-# ❌ WRONG
-def process_data(org_id: str, env_type: str, token: str) -> None:
-    pass  # Don't pass individual parameters
-```
-
-### 4. Logger-First Pattern
-
-Every module starts with logger:
-
-```python
-# src/any_script.py  ← Path comment ALWAYS first line
-from utils.logger import setup_logger
-
-logger = setup_logger()  # Before any other code
-
-# Then use throughout
-logger.info("Starting process")
-logger.debug("Detailed information")
-logger.error("Error occurred", exc_info=True)
-
-# NEVER use print()
-print("Don't do this")  # ❌ WRONG
-```
-
-### 5. HelpfulError Pattern
-
-User-friendly errors with actionable solutions:
-
-```python
-from utils.exceptions import HelpfulError
-
-if not Path(config_file).exists():
-    raise HelpfulError(
-        what_went_wrong=f"Configuration file '{config_file}' not found",
-        how_to_fix="Create the file in the config/ directory",
-        example=f"Copy config/example.json to config/{org_id}-{env_type}-config.json"
-    )
-```
-
-Output format:
-```
-❌ Problem: Configuration file 'acme-prod-config.json' not found
-
-✅ Solution: Create the file in the config/ directory
-
-📝 Example:
-Copy config/example.json to config/acme-prod-config.json
-```
-
-### 6. Path Centralization Pattern
-
-Never construct paths manually:
-
-```python
-# ✅ CORRECT
-from utils.path_helpers import get_path
-config_file = get_path('config', 'settings.json')
-output_file = get_path('output', 'report.xlsx')
-
-# ❌ WRONG
-config_file = Path('config/settings.json')
-config_file = 'config/settings.json'
-config_file = os.path.join('config', 'settings.json')
-```
-
-### 7. Output Naming Pattern
-
-Include organization, environment, and UTC timestamp:
-
-```python
-from datetime import datetime, timezone
-
-utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
-filename = f"{config['_org_id']}-{config['_env_type']}-report_{utc}.xlsx"
-# Creates: acme-prod-report_2025-01-15T1430Z.xlsx
-```
-
-### 8. Intelligent Save Pattern
-
-The `save()` method auto-detects type from data and extension:
+One method for all file types with automatic detection:
 
 ```python
 from utils.load_n_save import TxoDataHandler
-
 data_handler = TxoDataHandler()
 
-# All use the same method - just change extension!
-data_handler.save(dict_data, "output", "data.json")    # JSON
-data_handler.save(dataframe, "output", "data.csv")     # CSV
-data_handler.save(dataframe, "output", "data.xlsx")    # Excel
-data_handler.save("text", "output", "report.txt")      # Text
+# Auto-detects from data type + extension
+data_handler.save(dict_data, Dir.OUTPUT, "data.json")    # JSON with DecimalEncoder
+data_handler.save(dataframe, Dir.OUTPUT, "report.xlsx")  # Excel
+data_handler.save(dataframe, Dir.OUTPUT, "report.csv")   # CSV
+data_handler.save("text", Dir.OUTPUT, "readme.txt")      # Plain text
+data_handler.save(config, Dir.CONFIG, "settings.yaml")   # YAML
 
-# Handles Decimal automatically for JSON
-from decimal import Decimal
-data = {"amount": Decimal("99.99"), "count": 100}
-data_handler.save(data, "output", "amounts.json")  # Works!
+# Load also auto-detects
+df = data_handler.load(Dir.DATA, "input.csv")  # Returns DataFrame
+config = data_handler.load(Dir.CONFIG, "settings.yaml")  # Returns dict
 ```
 
-## V2.1 Features
+### 4. Mandatory Configuration Pattern
 
-### Automatic Token Redaction
-
-Logger automatically redacts sensitive patterns to prevent exposure:
+**No defaults allowed** - Configuration must exist:
 
 ```python
-# These are automatically redacted in logs:
-logger.info(f"Token: {token}")  
-# Logs: "Token: Bearer [REDACTED]"
+# Script WILL exit(1) if ANY required file is missing:
+# 1. {org}-{env}-config.json
+# 2. logging-config.json
+# 3. log-redaction-patterns.json
 
-logger.debug(f"Config: {json.dumps({'password': 'secret'})}")  
-# Logs: "Config: {"password": "[REDACTED]"}"
+logger = setup_logger()  # Exits if logging configs missing
+config = parse_args_and_load_config("Script")  # Exits if main config missing
 
-logger.error(f"JWT: {jwt_token}")  
-# Logs: "JWT: [REDACTED_JWT]"
+# Hard-fail on missing keys (v3.0 philosophy)
+api_url = config['global']['api-base-url']  # KeyError = good!
+tenant = config['global']['tenant-id']      # Immediate failure if missing
+
+# Soft-fail ONLY for API response data
+email = api_response.get('email')  # None if missing is OK for external data
 ```
 
-Redacted patterns:
-- Bearer tokens → `[REDACTED]`
-- JWT tokens (eyJ...) → `[REDACTED_JWT]`
-- Passwords in JSON → `[REDACTED]`
-- API keys (40+ chars) → `[REDACTED_TOKEN]`
-- Client secrets → `[REDACTED]`
+### 5. Nested Configuration Structure
 
-### Rate Limiting
-
-Prevent API bans with automatic throttling:
+Configuration now uses logical nesting:
 
 ```json
+{
+  "script-behavior": {
+    "rate-limiting": {
+      "enabled": true,
+      "calls-per-second": 10,
+      "burst-size": 1
+    },
+    "circuit-breaker": {
+      "enabled": false,
+      "failure-threshold": 5,
+      "timeout-seconds": 60
+    }
+  }
+}
+```
+
+### 6. Enhanced Logging with Token Redaction
+
+Logger automatically redacts sensitive patterns including underscore prefixes:
+
+```python
+# Automatically redacted patterns:
+logger.info(f"Token: {config['_token']}")  
+# Logs: "Token: Bearer [REDACTED]"
+
+logger.debug(f"Config: {json.dumps({'_password': 'secret'})}")  
+# Logs: "Config: {"_password": "[REDACTED]"}"
+
+# Supports TXO metadata convention
+logger.info(f"Secret: {config['_client_secret']}")
+# Logs: "Secret: [REDACTED]"
+```
+
+Redaction includes:
+- Bearer tokens
+- JWT tokens (eyJ...)
+- Passwords (including `_password`)
+- API keys (including `_api_key`)
+- Client secrets (including `_client_secret`)
+- Tokens (including `_token`)
+- Long random strings (40+ chars)
+
+### 7. Standard Script Pattern
+
+Every script follows this structure:
+
+```python
+# examples/my_script.py  ← Path comment ALWAYS first
+"""
+Script description and purpose.
+
+Usage:
+    python my_script.py <org_id> <env_type>
+"""
+
+from typing import Dict, Any
+from datetime import datetime, timezone
+
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.load_n_save import TxoDataHandler
+from utils.path_helpers import Dir  # ← ALWAYS import Dir
+from utils.exceptions import HelpfulError
+
+logger = setup_logger()
+data_handler = TxoDataHandler()
+
+def main():
+    config = parse_args_and_load_config(
+        "Script description",
+        require_token=False  # Default for most scripts
+    )
+    
+    org_id = config['_org_id']
+    env_type = config['_env_type']
+    logger.info(f"Starting for {org_id}-{env_type}")
+    
+    # Your logic here
+    
+if __name__ == "__main__":
+    main()
+```
+
+## Security Enhancements
+
+### Enhanced Token Redaction
+
+The `TokenRedactionFilter` now handles underscore-prefixed metadata:
+
+```python
+# Patterns that are automatically redacted:
+- "Bearer [token]" → "Bearer [REDACTED]"
+- "_token": "value" → "_token": "[REDACTED]"
+- "_password": "value" → "_password": "[REDACTED]"  
+- "_api_key": "value" → "_api_key": "[REDACTED]"
+- "_client_secret": "value" → "_client_secret": "[REDACTED]"
+```
+
+### Structured Error Context
+
+New `ErrorContext` dataclass provides debugging information without exposing sensitive data:
+
+```python
+from utils.exceptions import ErrorContext, ApiError
+
+context = ErrorContext(
+    operation="fetch_customers",
+    resource="/api/v2/customers",
+    details={"page": 1, "size": 100}
+)
+
+raise ApiError("Failed to fetch data", context=context)
+# Error message includes context without sensitive data
+```
+
+### Session Management with Limits
+
+Connection pooling now has strict limits to prevent resource exhaustion:
+
+```python
+# SessionManager in rest_api_helpers.py
+- Maximum 50 sessions cached (LRU eviction)
+- Thread-safe with proper locking
+- Automatic cleanup on eviction
+- Per-thread session storage for performance
+```
+
+## API Resilience Features
+
+### Integrated Rate Limiting
+
+Rate limiting is now built into the API client:
+
+```python
+# Configuration
 {
   "script-behavior": {
     "rate-limiting": {
@@ -218,19 +259,23 @@ Prevent API bans with automatic throttling:
     }
   }
 }
-```
 
-Usage is automatic:
-```python
-api = create_rest_api(config)  # Rate limiting applied
+# Automatic usage
+api = create_rest_api(config)  # Rate limiter created if enabled
 response = api.get(url)  # Automatically throttled
 ```
 
-### Circuit Breaker
+The `RateLimiter` class uses token bucket algorithm:
+- Smooth rate limiting (not bursty)
+- Configurable calls per second
+- Thread-safe implementation
 
-Stop cascade failures when APIs are down:
+### Circuit Breaker Pattern
 
-```json
+Prevent cascade failures with automatic circuit breaking:
+
+```python
+# Configuration
 {
   "script-behavior": {
     "circuit-breaker": {
@@ -240,380 +285,325 @@ Stop cascade failures when APIs are down:
     }
   }
 }
-```
 
-Behavior:
+# Behavior
 1. After 5 consecutive failures → circuit opens
-2. All requests fail immediately for 60 seconds
-3. After timeout → circuit attempts to close
-4. One success → circuit fully closes
+2. All requests fail fast for 60 seconds
+3. After timeout → circuit attempts reset
+4. One success → circuit closes fully
+```
 
 ### Async Operations (202 Accepted)
 
 Handle long-running operations transparently:
 
 ```python
-# This handles 202 responses automatically
+# Automatic handling of 202 responses
 result = api.post("/long-operation", data)
 
 # Behind the scenes:
-# 1. Detects 202 Accepted response
-# 2. Extracts Location header
-# 3. Polls Location URL
-# 4. Respects Retry-After header
-# 5. Returns final result when ready
-# 6. Times out after 5 minutes (configurable)
+# 1. Receives 202 Accepted with Location header
+# 2. Polls Location URL respecting Retry-After
+# 3. Applies jitter to polling interval
+# 4. Returns final result when ready
+# 5. Times out after configurable max-wait
 ```
 
 Configuration:
 ```json
-{
-  "script-behavior": {
-    "api-timeouts": {
-      "async-max-wait": 300,
-      "async-poll-interval": 5
-    }
-  }
+"api-timeouts": {
+  "async-max-wait": 300,      # Max 5 minutes
+  "async-poll-interval": 5    # Default poll every 5s
 }
 ```
 
-### Connection Pooling
+### Enhanced Connection Pooling
 
-Sessions are automatically pooled and reused:
-
-- Maximum 50 sessions cached
-- LRU eviction when full
-- Thread-safe implementation
+The `SessionManager` class provides:
+- Thread-local session storage for performance
+- Shared cache with LRU eviction
+- Maximum 50 sessions to prevent memory issues
 - Automatic cleanup on exit
+- Move-to-end for true LRU behavior
 
-### Exponential Backoff with Jitter
-
-All API calls include intelligent retry:
-
-```json
-{
-  "script-behavior": {
-    "retry-strategy": {
-      "max-retries": 3,
-      "backoff-factor": 2.0
-    },
-    "jitter": {
-      "min-factor": 0.8,
-      "max-factor": 1.2
-    }
-  }
-}
-```
-
-## Security Patterns
-
-### Configuration Separation
-
-Keep secrets separate from configuration:
-
-```
-config/
-├── acme-prod-config.json         # Can be committed to git
-└── acme-prod-config-secrets.json # GITIGNORED - never commit!
-```
-
-Main config (`acme-prod-config.json`):
-```json
-{
-  "global": {
-    "api-base-url": "https://api.example.com",
-    "client-id": "public-client-id"
-  }
-}
-```
-
-Secrets file (`acme-prod-config-secrets.json`):
-```json
-{
-  "client-secret": "oauth-secret-value",
-  "az-token": "Bearer eyJ...",
-  "api-key": "sk-..."
-}
-```
-
-Secrets are injected with underscore prefix:
-- `client-secret` → `config['_client_secret']`
-- `az-token` → `config['_az_token']`
-- `api-key` → `config['_api_key']`
-
-### OAuth Token Management
-
-Tokens are cached and refreshed automatically:
-
-```python
-# Token acquisition with fallback
-config = parse_args_and_load_config("Script")
-# Tries in order:
-# 1. OAuth client credentials flow
-# 2. Cached token if still valid
-# 3. Fallback token from secrets (_az_token)
-```
-
-## API Resilience Patterns
-
-### Handling Different Response Codes
-
-```python
-from utils.exceptions import *
-
-try:
-    result = api.get(url)
-except ApiAuthenticationError:
-    # 401 - Authentication failed
-    logger.error("Token expired or invalid")
-except ApiRateLimitError as e:
-    # 429 - Rate limited
-    if e.retry_after:
-        time.sleep(e.retry_after)
-except ApiTimeoutError:
-    # 408 or timeout - Request timed out
-    logger.error("API request timed out")
-except EntityNotFoundError:
-    # 404 - Resource not found
-    logger.warning("Entity does not exist")
-except ApiValidationError:
-    # 400/422 - Validation failed
-    logger.error("Invalid request data")
-```
-
-### Batch Processing with Rate Limiting
-
-```python
-from utils.concurrency import rate_limited_parallel
-
-# Process items with rate limiting
-results = rate_limited_parallel(
-    api_call_function,
-    items,
-    calls_per_second=5,
-    max_workers=10
-)
-
-logger.info(f"Success rate: {results.success_rate:.1%}")
-```
-
-### OData Pagination
-
-Automatic pagination for large datasets:
-
-```python
-# Fetches ALL pages automatically
-entities = api.get_odata_entities(
-    base_url="https://api.example.com/odata",
-    entity_name="Customers",
-    odata_filter="Country eq 'USA'",
-    select_fields=["Name", "Email", "Phone"],
-    page_size=100  # Per page
-)
-
-logger.info(f"Retrieved {len(entities)} total customers")
-```
-
-## Error Handling Patterns
+## Error Handling System
 
 ### Exception Hierarchy
 
 ```
 TxoBaseError
+├── ErrorContext (dataclass for context)
 ├── ApiError
-│   ├── ApiOperationError
 │   ├── ApiTimeoutError
+│   ├── ApiRateLimitError (includes retry_after)
 │   ├── ApiAuthenticationError
-│   ├── ApiRateLimitError (has retry_after)
-│   ├── ApiValidationError
-│   └── EntityNotFoundError
-├── ConfigurationError
-├── ValidationError
-├── FileOperationError
-└── HelpfulError (user-friendly messages)
+│   ├── ApiNotFoundError
+│   └── ApiValidationError
+├── ConfigurationError (includes config_key)
+├── ValidationError (includes field, value)
+├── FileOperationError (includes file_path, operation)
+└── HelpfulError (user-friendly with solutions)
 ```
 
-### Error Handling Strategy
+### HelpfulError Pattern
+
+Provide actionable solutions to users:
 
 ```python
-def main():
-    try:
-        config = parse_args_and_load_config("Script")
-        process_data(config)
-        
-    except HelpfulError:
-        # Already formatted nicely, just re-raise
-        raise
-        
-    except ApiRateLimitError as e:
-        # Handle rate limiting
-        logger.warning(f"Rate limited, retry after {e.retry_after}s")
-        raise HelpfulError(
-            what_went_wrong="API rate limit exceeded",
-            how_to_fix=f"Wait {e.retry_after} seconds and retry",
-            example="Consider enabling rate limiting in config"
-        )
-        
-    except Exception as e:
-        # Unexpected error - provide guidance
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        raise HelpfulError(
-            what_went_wrong=f"Script failed: {str(e)}",
-            how_to_fix="Check the logs for details",
-            example="Run with --debug flag for more information"
-        )
-```
+from utils.exceptions import HelpfulError
 
-## Performance Patterns
-
-### Lazy Loading
-
-Heavy dependencies are imported only when needed:
-
-```python
-def process_excel(config: Dict[str, Any]):
-    import pandas as pd  # Only loaded if function is called
-    return pd.read_excel(...)
-
-# Not at module level
-import pandas as pd  # Would load even if not used
-```
-
-### Parallel Processing
-
-```python
-from utils.concurrency import parallel_map, batch_process
-
-# Process items in parallel
-result = parallel_map(
-    process_item,
-    items,
-    max_workers=10,
-    show_progress=True  # Optional progress bar
-)
-
-# Process in batches for memory efficiency
-result = batch_process(
-    process_batch,
-    large_dataset,
-    batch_size=1000
+raise HelpfulError(
+    what_went_wrong="Configuration file not found",
+    how_to_fix="Copy the template from config/templates/",
+    example="cp config/templates/example.json config/myorg-prod-config.json"
 )
 ```
 
-### Context Managers
+Output:
+```
+❌ Problem: Configuration file not found
 
-Ensure proper resource cleanup:
+✅ Solution: Copy the template from config/templates/
+
+📝 Example:
+cp config/templates/example.json config/myorg-prod-config.json
+```
+
+### Context-Aware Errors
+
+All exceptions can include structured context:
 
 ```python
-from utils.api_factory import ApiManager
+from utils.exceptions import ErrorContext, ApiOperationError
 
-# Automatic cleanup
-with ApiManager(config) as manager:
-    api = manager.get_rest_api()
-    data = api.get("/endpoint")
-    # API sessions closed automatically on exit
+context = ErrorContext(
+    operation="update_customer",
+    resource="Customer-12345",
+    details={"field": "email", "value": "invalid"}
+)
+
+raise ApiValidationError(
+    "Email validation failed",
+    field="email",
+    value="invalid",
+    context=context
+)
+```
+
+## Performance Optimizations
+
+### Thread-Safe Lazy Loading
+
+Heavy dependencies are loaded only when needed:
+
+```python
+# In load_n_save.py
+def _ensure_pandas(self):
+    """Lazy load pandas only when needed."""
+    if self._pd is None:
+        with self._import_lock:
+            if self._pd is None:  # Double-check pattern
+                import pandas as pd
+                self._pd = pd
+    return self._pd
+
+# Similar for yaml, openpyxl, etc.
+```
+
+### Efficient Session Reuse
+
+Sessions are reused across requests:
+
+```python
+# Thread-local storage for performance
+_thread_local = threading.local()
+
+def get_session(self, key: str) -> requests.Session:
+    # Check thread-local first (fast)
+    if not hasattr(_thread_local, 'sessions'):
+        _thread_local.sessions = {}
+    
+    if key in _thread_local.sessions:
+        return _thread_local.sessions[key]
+    
+    # Fall back to shared cache (with lock)
+    with self._lock:
+        # LRU cache with eviction
+        ...
+```
+
+### Jitter for Thundering Herd Prevention
+
+All retries include jitter to prevent synchronized retries:
+
+```python
+def apply_jitter(delay: float, config: Dict[str, Any]) -> float:
+    """Apply jitter to prevent thundering herd."""
+    min_factor = config.get("min-factor", 0.8)
+    max_factor = config.get("max-factor", 1.2)
+    return delay * random.uniform(min_factor, max_factor)
 ```
 
 ## Configuration Management
 
-### ⚠️ Critical Rule: Schema Must Match Config
+### Required Configuration Files
 
-**EVERY configuration change requires updating the JSON schema!**
+#### 1. Main Config: `config/{org}-{env}-config.json`
 
-When you modify configuration:
-1. Update `config/{org}-{env}-config.json`
-2. **IMMEDIATELY** update `schemas/org-env-config-schema.json`
-3. Use kebab-case: `"my-new-setting"` not `"my_new_setting"`
-4. Document purpose in schema description
-5. Set reasonable defaults and constraints
-
-### Configuration Structure (v2.1)
+Must include nested structure:
 
 ```json
 {
   "global": {
     "api-base-url": "https://api.example.com",
     "api-version": "v2",
-    "tenant-id": "your-tenant-id",
-    "client-id": "your-client-id",
-    "oauth-scope": "https://api.example.com/.default"
+    "tenant-id": "",     # Can be empty for non-API scripts
+    "client-id": "",     # Can be empty for non-API scripts
+    "oauth-scope": ""    # Can be empty for non-API scripts
   },
   "script-behavior": {
     "api-delay-seconds": 1,
     "api-timeouts": {
       "rest-timeout-seconds": 60,
-      "soap-timeout-seconds": 120,
-      "wsdl-timeout-seconds": 60,
       "async-max-wait": 300,
       "async-poll-interval": 5
     },
     "retry-strategy": {
-      "max-retries": 3,
-      "backoff-factor": 2.0
+      "max-retries": 5,
+      "backoff-factor": 3.0
     },
     "jitter": {
       "min-factor": 0.8,
       "max-factor": 1.2
     },
     "rate-limiting": {
-      "enabled": true,
+      "enabled": false,
       "calls-per-second": 10,
       "burst-size": 1
     },
     "circuit-breaker": {
-      "enabled": true,
+      "enabled": false,
       "failure-threshold": 5,
       "timeout-seconds": 60
     },
     "batch-handling": {
-      "read-batch-size": 100,
-      "update-batch-size": 50,
-      "vat-batch-size": 10
-    }
-  },
-  "environments": {
-    "test": {
-      "api-endpoint": "https://test-api.example.com"
-    },
-    "prod": {
-      "api-endpoint": "https://api.example.com"
+      "read-batch-size": 20,
+      "update-batch-size": 10
     }
   }
 }
 ```
 
-### Custom Configuration Sections
+#### 2. Logging Config: `config/logging-config.json`
 
-Add your own sections for script-specific config:
+MANDATORY - Script exits if missing:
 
 ```json
 {
-  "global": { ... },
-  "script-behavior": { ... },
-  "my-feature": {
-    "enabled": true,
-    "custom-endpoint": "https://my-api.com",
-    "processing-options": {
-      "skip-validation": false,
-      "output-format": "excel"
+  "version": 1,
+  "formatters": {
+    "standard": {
+      "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    }
+  },
+  "handlers": {
+    "console": {
+      "class": "logging.StreamHandler",
+      "level": "INFO",
+      "formatter": "standard"
+    },
+    "file": {
+      "class": "logging.FileHandler",
+      "level": "DEBUG",
+      "formatter": "standard",
+      "filename": "logs/app.log"
+    }
+  },
+  "loggers": {
+    "TxoApp": {
+      "level": "DEBUG",
+      "handlers": ["console", "file"]
     }
   }
 }
 ```
 
-Remember to update the schema!
+#### 3. Redaction Patterns: `config/log-redaction-patterns.json`
+
+MANDATORY for security:
+
+```json
+{
+  "_comment": "Keys prefixed with _ are documentation for humans",
+  "redaction-patterns": {
+    "patterns": [
+      {
+        "name": "bearer-token",
+        "pattern": "Bearer\\s+[A-Za-z0-9\\-._~+/]+=*",
+        "replacement": "Bearer [REDACTED]"
+      },
+      {
+        "name": "token-json",
+        "pattern": "\"_?token\":\\s*\"[^\"]*\"",
+        "replacement": "\"token\": \"[REDACTED]\""
+      }
+    ]
+  },
+  "_usage-notes": {
+    "metadata-prefix": "Leading underscores are TXO convention for metadata",
+    "pattern-flexibility": "Patterns handle both - and _ separators"
+  }
+}
+```
+
+### Schema Validation
+
+All configurations are validated against JSON schema:
+
+```json
+// schemas/org-env-config-schema.json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["global", "script-behavior"],
+  "properties": {
+    "global": {
+      "type": "object",
+      "required": ["api-base-url"],
+      ...
+    }
+  }
+}
+```
 
 ## Helper Modules Reference
 
 ### Core Modules
 
+#### utils.path_helpers
+```python
+from utils.path_helpers import Dir, get_path
+
+# Type-safe directory constants
+Dir.CONFIG, Dir.OUTPUT, Dir.LOGS, etc.
+
+# Get full path
+path = get_path(Dir.CONFIG, "settings.json")
+# Returns: Path object to config/settings.json
+```
+
 #### utils.script_runner
 ```python
-# Standard initialization
+# Standard initialization (token optional)
 config = parse_args_and_load_config(
     "Script description",
-    require_token=True,     # Get OAuth token
-    validate_config=True    # Validate against schema
+    require_token=False    # Default - most scripts don't need auth
+)
+
+# For API scripts
+config = parse_args_and_load_config(
+    "API sync script",
+    require_token=True     # Explicit for API access
 )
 
 # With custom arguments
@@ -628,51 +618,61 @@ config = parse_custom_args_and_load_config("Script", extra_args)
 
 #### utils.logger
 ```python
-logger = setup_logger(org_id="myorg")  # Optional context
+from utils.logger import setup_logger
 
-logger.debug("Detailed info")     # File only
-logger.info("Important event")    # Console + file
-logger.warning("Potential issue") # Console + file
-logger.error("Error occurred")    # Console + file
+logger = setup_logger()  # Will exit if configs missing
+
+# Thread-safe singleton with automatic redaction
+logger.debug("Details")      # File only
+logger.info("Progress")      # Console + file
+logger.warning("Warning")    # Console + file
+logger.error("Error", exc_info=True)  # With traceback
 ```
 
 #### utils.load_n_save
 ```python
+from utils.load_n_save import TxoDataHandler
+from utils.path_helpers import Dir
+
 data_handler = TxoDataHandler()
 
-# Load operations
-data = data_handler.load_json("config", "settings.json")
-df = data_handler.load_excel("data", "input.xlsx", sheet_name="Sheet1")
-df = data_handler.load_csv("data", "input.csv")
+# Universal save (auto-detects type)
+data_handler.save(data, Dir.OUTPUT, "file.json")   # Any data type
+data_handler.save(df, Dir.OUTPUT, "file.xlsx")     # DataFrame
+data_handler.save("text", Dir.OUTPUT, "file.txt")  # String
 
-# Save operations (auto-detects type!)
-path = data_handler.save(data, "output", "data.json", indent=2)
-path = data_handler.save(df, "output", "report.csv", index=False)
-path = data_handler.save(df, "output", "report.xlsx", sheet_name="Results")
-path = data_handler.save("text", "output", "report.txt")
+# Universal load (auto-detects format)
+data = data_handler.load(Dir.DATA, "file.csv")     # Returns DataFrame
+config = data_handler.load(Dir.CONFIG, "file.json") # Returns dict
 
 # File operations
-exists = data_handler.exists("config", "settings.json")
-data_handler.delete("tmp", "temp_file.json")
-size = data_handler.get_size("output", "report.xlsx")
+exists = data_handler.exists(Dir.CONFIG, "file.json")
+data_handler.delete(Dir.TMP, "temp.json")
+size = data_handler.get_size(Dir.OUTPUT, "report.xlsx")
 ```
 
 #### utils.api_factory
 ```python
-# Create REST API with all features
+from utils.api_factory import create_rest_api, ApiManager
+
+# Create API with all features
 api = create_rest_api(config)  # Rate limiting, circuit breaker included
 
-# For public APIs (no auth)
-api = create_rest_api(config, require_auth=False)
-
-# With context manager
+# With context manager for automatic cleanup
 with ApiManager(config) as manager:
     api = manager.get_rest_api()
-    # Automatic cleanup
+    # Sessions closed automatically on exit
 ```
 
 #### utils.exceptions
 ```python
+from utils.exceptions import (
+    HelpfulError, 
+    ErrorContext,
+    ApiRateLimitError,
+    ApiTimeoutError
+)
+
 # User-friendly errors
 raise HelpfulError(
     what_went_wrong="Database connection failed",
@@ -680,491 +680,344 @@ raise HelpfulError(
     example="postgres://user:pass@localhost/db"
 )
 
-# API-specific exceptions
-raise ApiAuthenticationError("Invalid token")
-raise ApiRateLimitError("Rate limit exceeded", retry_after=60)
-raise ApiTimeoutError("Request timed out", timeout_seconds=30)
-raise EntityNotFoundError("Customer", entity_id="12345")
+# Context-aware API errors
+context = ErrorContext(
+    operation="fetch_data",
+    resource="/api/customers"
+)
+raise ApiTimeoutError("Request timed out", context=context)
 ```
 
-### Advanced Modules
+### API Modules
 
-#### utils.concurrency
+#### utils.rest_api_helpers
 ```python
-# Parallel processing
-result = parallel_map(process_func, items, max_workers=10)
+from utils.rest_api_helpers import MinimalRestAPI
 
-# Rate-limited parallel
-result = rate_limited_parallel(
-    api_call, items, 
-    calls_per_second=5
+# Enhanced REST client with all features
+api = MinimalRestAPI(
+    token=token,
+    rate_limiter=rate_limiter,      # Optional
+    circuit_breaker=circuit_breaker  # Optional
 )
 
-# Batch processing
-result = batch_process(
-    process_batch, data,
-    batch_size=1000
+# Automatic pagination
+entities = api.get_odata_entities(
+    base_url=url,
+    entity_name="Customers",
+    odata_filter="Country eq 'USA'",
+    select_fields=["Name", "Email"],
+    page_size=100
 )
 
-# Check results
-if result.success_rate < 90:
-    logger.warning(f"High failure rate: {result.failure_count} failed")
+# Handle async operations
+result = api.post("/long-operation", data)  # Handles 202 automatically
 ```
 
-#### utils.url_helpers
+#### utils.api_common
 ```python
-# Build URLs
-url = build_url(
-    "https://api.example.com",
-    "v2", "customers", customer_id,
-    query_params={"include": "orders", "limit": 10}
-)
+from utils.api_common import RateLimiter, CircuitBreaker
 
-# Build OData filters
-filter_str = build_odata_filter({
-    "status": "eq 'active'",
-    "created": "gt 2024-01-01",
-    "amount": "ge 100"
-})
+# Rate limiting
+limiter = RateLimiter(calls_per_second=10)
+limiter.wait_if_needed()  # Blocks if rate exceeded
+
+# Circuit breaker
+breaker = CircuitBreaker(failure_threshold=5, timeout=60)
+if breaker.is_open():
+    raise ApiOperationError("Circuit breaker open")
 ```
 
 ## Script Development Guide
 
-### Standard Script Template
+### Template for Local Processing Script
 
 ```python
-# src/my_script.py
-"""
-Script description and purpose.
+# examples/process_data.py
+"""Process local data files - no authentication needed."""
 
-Usage:
-    python my_script.py <org_id> <env_type>
-
-Example:
-    python my_script.py acme prod
-"""
-
+from typing import Dict, Any
 from datetime import datetime, timezone
-from typing import Dict, Any, List
 
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.load_n_save import TxoDataHandler
-from utils.api_factory import create_rest_api
-from utils.exceptions import HelpfulError, ApiOperationError
+from utils.path_helpers import Dir
+from utils.exceptions import HelpfulError
 
 logger = setup_logger()
 data_handler = TxoDataHandler()
 
-
-def validate_config(config: Dict[str, Any]) -> None:
-    """Validate required configuration exists."""
-    # Hard-fail on missing required config
-    required_keys = ['global', 'script-behavior']
-    for key in required_keys:
-        if key not in config:
-            raise HelpfulError(
-                what_went_wrong=f"Missing '{key}' section in configuration",
-                how_to_fix=f"Add '{key}' section to your config file",
-                example="See config/example.json for structure"
-            )
+def process_data(config: Dict[str, Any]) -> None:
+    """Main processing logic."""
+    # Load input
+    df = data_handler.load(Dir.DATA, "input.csv")
     
-    # Check specific required values
-    if 'api-base-url' not in config['global']:
+    # Process
+    df['processed'] = True
+    
+    # Save with TXO naming
+    utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+    filename = f"{config['_org_id']}-{config['_env_type']}-results_{utc}.xlsx"
+    
+    output_path = data_handler.save(df, Dir.OUTPUT, filename)
+    logger.info(f"✅ Saved to: {output_path}")
+
+def main():
+    # No token needed (default)
+    config = parse_args_and_load_config("Process local data")
+    
+    try:
+        process_data(config)
+    except Exception as e:
         raise HelpfulError(
-            what_went_wrong="Missing 'api-base-url' in global config",
-            how_to_fix="Add 'api-base-url' to the 'global' section",
-            example='"global": {"api-base-url": "https://api.example.com"}'
+            what_went_wrong=f"Processing failed: {e}",
+            how_to_fix="Check input file format",
+            example="Ensure CSV has required columns"
         )
 
+if __name__ == "__main__":
+    main()
+```
 
-def process_data(config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Main processing logic.
-    
-    Args:
-        config: Configuration dictionary with injected fields
-        
-    Returns:
-        List of processed records
-        
-    Raises:
-        ApiOperationError: If API calls fail
-    """
+### Template for API Integration Script
+
+```python
+# examples/api_sync.py
+"""Sync with external API - requires authentication."""
+
+from utils.logger import setup_logger
+from utils.script_runner import parse_args_and_load_config
+from utils.api_factory import create_rest_api
+from utils.path_helpers import Dir
+from utils.exceptions import HelpfulError, ApiOperationError
+
+logger = setup_logger()
+
+def sync_data(config: Dict[str, Any]) -> None:
+    """Sync data with API."""
     api = create_rest_api(config)
     
     try:
-        # Your processing logic here
+        # Fetch from API
         endpoint = f"{config['global']['api-base-url']}/data"
-        response = api.get(endpoint)
+        data = api.get(endpoint)
         
-        records = response.get('items', [])
-        logger.info(f"Retrieved {len(records)} records")
-        
-        # Process records
-        processed = []
-        for record in records:
-            # Transform data
-            processed.append({
-                'id': record['id'],
-                'name': record['name'],
-                'processed_at': datetime.now(timezone.utc).isoformat()
-            })
-        
-        return processed
+        # Save locally
+        data_handler.save(data, Dir.OUTPUT, "api-data.json")
         
     except ApiOperationError as e:
-        logger.error(f"API operation failed: {e}")
         raise HelpfulError(
-            what_went_wrong=f"Failed to fetch data: {e}",
+            what_went_wrong=f"API sync failed: {e}",
             how_to_fix="Check API endpoint and authentication",
-            example="Verify the API URL and token are correct"
+            example="Verify token is valid and endpoint exists"
         )
-
-
-def save_results(config: Dict[str, Any], data: List[Dict[str, Any]]) -> None:
-    """Save processed results."""
-    if not data:
-        logger.warning("No data to save")
-        return
-    
-    # Generate filename with TXO pattern
-    utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
-    filename = f"{config['_org_id']}-{config['_env_type']}-results_{utc}.json"
-    
-    # Save using intelligent save
-    output_path = data_handler.save(data, "output", filename, indent=2)
-    logger.info(f"✅ Saved {len(data)} records to: {output_path}")
-
 
 def main():
-    """Main entry point."""
-    # Load configuration
+    # Explicitly require token for API
     config = parse_args_and_load_config(
-        "My Data Processing Script",
-        require_token=True,
-        validate_config=True
+        "API sync script",
+        require_token=True  # Required for API access
     )
     
-    org_id = config['_org_id']
-    env_type = config['_env_type']
-    
-    logger.info(f"Starting process for {org_id}-{env_type}")
-    
-    try:
-        # Validate
-        validate_config(config)
-        
-        # Process
-        data = process_data(config)
-        
-        # Save
-        save_results(config, data)
-        
-        logger.info(f"✅ Process completed successfully for {org_id}-{env_type}")
-        
-    except HelpfulError:
-        # Re-raise helpful errors for display
-        raise
-        
-    except Exception as e:
-        # Convert unexpected errors to helpful format
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        raise HelpfulError(
-            what_went_wrong=f"Process failed unexpectedly: {str(e)}",
-            how_to_fix="Check the logs for details",
-            example="Run with --debug flag for more information"
-        )
-
+    sync_data(config)
 
 if __name__ == "__main__":
-    import sys
-    
-    try:
-        main()
-    except KeyboardInterrupt:
-        logger.info("Script interrupted by user")
-        sys.exit(130)
-    except HelpfulError:
-        # HelpfulError already logged nicely
-        sys.exit(1)
-    except Exception:
-        # Unexpected errors already logged
-        sys.exit(1)
+    main()
 ```
 
 ## Best Practices
 
-### 1. Configuration Management
-- **ALWAYS** update schema when changing config structure
-- Use hard-fail for required configuration
-- Keep secrets separate from main config
-- Use kebab-case for all config keys
+### ✅ DO
+1. **Always use Dir constants** - Never use string literals for directories
+2. **Use save() for everything** - It auto-detects the type
+3. **Let config fail hard** - No .get() for required configuration
+4. **Include UTC timestamps** - In all output filenames
+5. **Use HelpfulError** - For user-facing error messages
+6. **Set require_token=True** - ONLY for scripts that need API access
+7. **Use context managers** - For resource cleanup
+8. **Log at appropriate levels** - DEBUG for details, INFO for progress
 
-### 2. Error Handling
-- Use HelpfulError for user-facing errors
-- Handle specific exceptions appropriately
-- Log errors with context
-- Never show raw stack traces to users
-
-### 3. Logging
-- Use logger for ALL output (never print)
-- Log at appropriate levels (DEBUG, INFO, WARNING, ERROR)
-- Include context in log messages
-- Don't log sensitive data (but it's auto-redacted anyway)
-
-### 4. Code Structure
-- Path comment as first line of every file
-- Include docstrings with type hints
-- Pass entire config dict, not individual params
-- Use context managers for resource cleanup
-
-### 5. File Operations
-- Use path_helpers for all paths
-- Include UTC timestamp in output files
-- Use intelligent save() method
-- Handle file errors gracefully
-
-### 6. API Interactions
-- Enable rate limiting and circuit breakers
-- Handle all response codes appropriately
-- Use pagination for large datasets
-- Implement proper retry logic
+### ❌ DON'T
+1. **Use string paths** - Like 'config' or 'output'
+2. **Require tokens unnecessarily** - Most scripts don't need auth
+3. **Use soft defaults** - For required configuration
+4. **Use print()** - Always use logger
+5. **Build paths manually** - Use get_path() with Dir constants
+6. **Ignore exceptions** - Handle them with HelpfulError
+7. **Mix save methods** - Just use save() for everything
+8. **Skip UTC timestamps** - Always include them in output files
 
 ## Common Pitfalls
 
-### 1. Using Soft-Fail on Config
+### Using String Literals Instead of Dir Constants
 ```python
-# ❌ WRONG - Silent failures
+# ❌ WRONG
+data = data_handler.load_json('config', 'settings.json')
+
+# ✅ CORRECT
+data = data_handler.load_json(Dir.CONFIG, 'settings.json')
+```
+
+### Requiring Token When Not Needed
+```python
+# ❌ WRONG - Local processing doesn't need token
+config = parse_args_and_load_config("Process CSV", require_token=True)
+
+# ✅ CORRECT - Token optional by default
+config = parse_args_and_load_config("Process CSV")
+```
+
+### Using Soft-Fail on Required Config
+```python
+# ❌ WRONG - Hides configuration errors
 url = config.get('global', {}).get('api-url', 'default')
 
-# ✅ CORRECT - Fail fast
+# ✅ CORRECT - Fails immediately if missing
 url = config['global']['api-url']
 ```
 
-### 2. Not Updating Schema
+### Using Multiple Save Methods
 ```python
-# ❌ WRONG - Add to config only
+# ❌ WRONG - Old pattern, verbose
+data_handler.save_json(data, Dir.OUTPUT, "data.json")
+data_handler.save_excel(df, Dir.OUTPUT, "report.xlsx")
 
-# ✅ CORRECT - Update both
-# 1. config/{org}-{env}-config.json
-# 2. schemas/org-env-config-schema.json
-```
-
-### 3. Using Print Instead of Logger
-```python
-# ❌ WRONG
-print("Processing started")
-
-# ✅ CORRECT
-logger.info("Processing started")
-```
-
-### 4. Building Paths Manually
-```python
-# ❌ WRONG
-path = "config/settings.json"
-path = Path("config") / "settings.json"
-
-# ✅ CORRECT
-path = get_path("config", "settings.json")
-```
-
-### 5. Missing UTC Timestamp
-```python
-# ❌ WRONG
-filename = f"{org_id}-{env_type}-report.xlsx"
-
-# ✅ CORRECT
-utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
-filename = f"{org_id}-{env_type}-report_{utc}.xlsx"
-```
-
-### 6. Wrong Save Method
-```python
-# ❌ WRONG - These methods don't exist
-data_handler.save_json(data, "output", "file.json")
-data_handler.save_excel(df, "output", "file.xlsx")
-
-# ✅ CORRECT - Just use save()
-data_handler.save(data, "output", "file.json")
-data_handler.save(df, "output", "file.xlsx")
+# ✅ CORRECT - Universal save
+data_handler.save(data, Dir.OUTPUT, "data.json")
+data_handler.save(df, Dir.OUTPUT, "report.xlsx")
 ```
 
 ## Troubleshooting
 
+### Invalid Directory Error
+```
+ValueError: Invalid directory 'config'. Use Dir.* constants
+```
+**Fix**: Import and use `Dir.CONFIG` instead of string 'config'
+
 ### Config File Not Found
 ```
-❌ Problem: Configuration file 'acme-prod-config.json' not found
-✅ Solution: Create the file in config/ directory
-📝 Example: Copy config/example.json to config/acme-prod-config.json
+CRITICAL CONFIGURATION ERROR
+Configuration file not found!
 ```
+**Fix**: Copy templates from `config/templates/`
 
-**Fix**: Create the config file with required structure
-
-### Schema Validation Failed
+### Token Required But Not Configured
 ```
-❌ Problem: Configuration doesn't match schema
-✅ Solution: Check schemas/org-env-config-schema.json
+❌ Problem: Token required but OAuth config incomplete
+✅ Solution: Either configure OAuth or use require_token=False
 ```
-
-**Fix**: Ensure config structure matches schema exactly
-
-### KeyError on Config Access
-```
-KeyError: 'api-base-url'
-```
-
-**Fix**: Add missing key to config (v2.1 uses hard-fail)
-
-### Rate Limit Errors
-```
-ApiRateLimitError: Rate limit exceeded
-```
-
-**Fix**: Enable rate limiting in config:
-```json
-"rate-limiting": {
-  "enabled": true,
-  "calls-per-second": 5
-}
-```
+**Fix**: Only set `require_token=True` for API scripts
 
 ### Circuit Breaker Open
 ```
-ApiOperationError: Circuit breaker open
+ApiOperationError: Circuit breaker open for operation
 ```
+**Fix**: Wait for timeout period or fix underlying API issue
 
-**Fix**: Wait for timeout or fix the underlying API issue
-
-### Import Errors
+### Rate Limit Exceeded
 ```
-ImportError: cannot import name 'X' from 'utils.Y'
+ApiRateLimitError: Rate limit exceeded
 ```
+**Fix**: Enable rate limiting in configuration
 
-**Fix**: Check you're using v2.1 class names (TxoRestAPI not MinimalRestAPI)
+## Migration from v2.x
 
-### Token Not Found
-```
-❌ Problem: Failed to acquire authentication token
-✅ Solution: Check OAuth config or add fallback token
-```
+### Breaking Changes
 
-**Fix**: Either fix OAuth config or add `az-token` to secrets file
+1. **Dir Constants Required**
+   ```python
+   # v2.x
+   data_handler.load_json('config', 'file.json')
+   
+   # v3.0
+   from utils.path_helpers import Dir
+   data_handler.load_json(Dir.CONFIG, 'file.json')
+   ```
 
-## Advanced Patterns
+2. **Token Optional by Default**
+   ```python
+   # v2.x - Token required by default
+   config = parse_args_and_load_config("Script")
+   
+   # v3.0 - Token optional by default
+   config = parse_args_and_load_config("Script")  # No token
+   config = parse_args_and_load_config("Script", require_token=True)  # With token
+   ```
 
-### Custom Retry Logic
-```python
-from utils.api_common import manual_retry
+3. **Nested Configuration**
+   ```json
+   // v2.x - Flat
+   "enable-rate-limiting": true,
+   "rate-limit-per-second": 10
+   
+   // v3.0 - Nested
+   "rate-limiting": {
+     "enabled": true,
+     "calls-per-second": 10,
+     "burst-size": 1
+   }
+   ```
 
-@manual_retry(max_retries=5, backoff=3.0)
-def unstable_operation():
-    # Operation that might fail
-    pass
-```
+4. **Universal Save Method**
+   ```python
+   # v2.x - Different methods
+   data_handler.save_json(data, 'output', 'file.json')
+   data_handler.save_excel(df, 'output', 'file.xlsx')
+   
+   # v3.0 - One method
+   data_handler.save(data, Dir.OUTPUT, 'file.json')
+   data_handler.save(df, Dir.OUTPUT, 'file.xlsx')
+   ```
 
-### Progress Tracking
-```python
-from utils.concurrency import parallel_map
+5. **Mandatory Config Files**
+   - Must have `logging-config.json`
+   - Must have `log-redaction-patterns.json`
+   - No defaults - script exits if missing
 
-result = parallel_map(
-    process_item,
-    items,
-    show_progress=True,  # Shows progress bar
-    max_workers=10
-)
-```
-
-### Complex OData Queries
-```python
-entities = api.get_odata_entities_filtered(
-    base_url=url,
-    entity_name="Orders",
-    filter_conditions={
-        "Status": "eq 'Active'",
-        "Amount": "gt 1000",
-        "Created": f"gt {start_date}"
-    },
-    select_fields=["OrderId", "Customer", "Amount", "Status"],
-    page_size=200
-)
-```
-
-### Batch Updates with Tracking
-```python
-from dataclasses import dataclass, field
-from typing import List
-
-@dataclass
-class UpdateResults:
-    successful: List[str] = field(default_factory=list)
-    failed: List[tuple] = field(default_factory=list)
-    
-    @property
-    def success_rate(self) -> float:
-        total = len(self.successful) + len(self.failed)
-        return (len(self.successful) / total * 100) if total > 0 else 0
-
-results = UpdateResults()
-
-for item in items:
-    try:
-        api.patch(f"/items/{item['id']}", item)
-        results.successful.append(item['id'])
-    except Exception as e:
-        results.failed.append((item['id'], str(e)))
-
-logger.info(f"Update complete: {results.success_rate:.1f}% success rate")
-```
-
-## Module Dependency Order
-
-When refactoring or updating helpers, follow this order:
-
-1. **exceptions.py** (no dependencies)
-2. **path_helpers.py** (no dependencies)
-3. **logger.py** (depends on path_helpers)
-4. **api_common.py** (depends on logger)
-5. **load_n_save.py** (depends on exceptions, logger, path_helpers)
-6. **oauth_helpers.py** (depends on logger, exceptions)
-7. **rest_api_helpers.py** (depends on api_common, exceptions, logger)
-8. **config_loader.py** (depends on logger, path_helpers, load_n_save)
-9. **api_factory.py** (depends on rest_api_helpers, api_common)
-10. **script_runner.py** (top level orchestration)
+### Migration Checklist
+- [ ] Replace all string directory literals with Dir constants
+- [ ] Update config to nested structure
+- [ ] Remove `require_token=True` unless script needs API
+- [ ] Replace all save_* methods with save()
+- [ ] Ensure all 3 config files exist
+- [ ] Move scripts to examples/ or tests/
+- [ ] Update imports to include Dir
 
 ## Version History
 
-### v2.1.0 (Current)
-- Nested configuration structure for rate-limiting and circuit-breaker
-- Hard-fail philosophy for all configuration access
-- TxoRestAPI class (renamed from MinimalRestAPI)
-- Intelligent save() with automatic type detection
-- Enhanced error messages with HelpfulError
+### v3.0.0 (Current)
+- Type-safe Dir constants replace string literals
+- Token optional by default (was required)
+- Universal save() method with auto-detection
+- Mandatory configuration files (no defaults)
+- Enhanced redaction for underscore-prefixed metadata
+- SessionManager with connection pool limits
+- Integrated RateLimiter and CircuitBreaker
+- Thread-safe lazy loading
+
+### v2.1.0
+- Nested configuration structure
+- Hard-fail philosophy
+- TxoRestAPI class naming
+- Basic smart save
 
 ### v2.0.0
-- Added automatic token redaction
-- Added rate limiting support
-- Added circuit breaker pattern
-- Added async operation support (202 Accepted)
-- Added connection pooling
+- Token redaction
+- Rate limiting support
+- Circuit breaker pattern
+- Async operation support
 
-### v1.x
-- Basic template structure
-- Simple retry logic
-- Manual save methods (save_json, save_excel)
-- Soft-fail configuration access
+## Additional Resources
 
-## For More Information
-
-- **Architecture Decisions**: See [ADR Records](ai/decided/adr-records.md)
-- **Visual Architecture**: See [Module Dependency Diagram](module-dependency-diagram.md)
-- **AI Assistance**: Upload `ai/prompts/txo-xml-prompt-v3.1.xml` to Claude
-- **Migration Guide**: Use `ai/prompts/refactoring-prompt-v2.xml` for upgrades
+- **Architecture Decisions**: See [ADR Records](ai/decided/adr_v3.md)
+- **Module Dependencies**: See [Module Dependency Diagram](module-dependency-diagram.md)
+- **AI Assistance**: Upload `ai/prompts/txo-xml-prompt-v3.0.xml` to Claude/GPT-4
+- **GitHub Issues**: Report bugs and request features
 
 ## Support
 
-- Create an issue on GitHub for bugs
-- Check existing issues for solutions
-- Review logs in `logs/` directory for debugging
-- Use `--debug` flag for detailed logging
+- Template Version: v3.0.0
+- Python Required: 3.10+ (3.13+ recommended)
+- License: MIT

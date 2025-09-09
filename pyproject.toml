@@ -9,6 +9,7 @@ dependencies = [
     "pandas>=2.3.0",
     "pandas-stubs==2.2.3.250527",
     "platformdirs>=4.3.8",
+    "pyyaml>=6.0.2",
     "requests>=2.32.4",
     "urllib3>=2.5.0",
     "zeep>=4.3.1",

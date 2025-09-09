@@ -1,34 +1,42 @@
-# Module Dependency Diagram
+# Module Dependency Diagram v3.0
 
 ## Architecture Overview
 
-The TXO Python Template v2.1 follows a layered architecture with clear dependency rules. Understanding these dependencies is crucial for maintenance and refactoring.
+The TXO Python Template v3.0 follows a layered architecture with clear dependency rules. The v3.0 release adds type-safe directory constants, integrated rate limiting, circuit breakers, and enhanced error handling with context.
 
 ## Dependency Layers
 
 ### Layer 1: Foundation (No Dependencies)
-- `exceptions.py` - Custom exception hierarchy
-- `path_helpers.py` - Path management utilities
+- `exceptions.py` - Custom exception hierarchy with `ErrorContext`
+- `path_helpers.py` - Path management with `Dir` constants
 
 ### Layer 2: Core Services 
 - `logger.py` - Depends on: path_helpers
+  - Contains: `TxoLogger`, `TokenRedactionFilter`, `ContextFilter`
 - `api_common.py` - Depends on: logger
+  - Contains: `RateLimiter`, `CircuitBreaker`, retry utilities
 
 ### Layer 3: Data & I/O
 - `load_n_save.py` - Depends on: exceptions, logger, path_helpers
+  - Thread-safe lazy loading
+  - Universal save() method
 
 ### Layer 4: API Implementation
 - `oauth_helpers.py` - Depends on: logger, exceptions
 - `rest_api_helpers.py` - Depends on: logger, exceptions, api_common
+  - Contains: `MinimalRestAPI`, `SessionManager`, `RestOperationResult`
+- `soap_api_helpers.py` - Depends on: logger, exceptions, api_common
 - `url_helpers.py` - Depends on: logger
 
 ### Layer 5: Orchestration
 - `config_loader.py` - Depends on: logger, path_helpers, load_n_save, exceptions
-- `api_factory.py` - Depends on: logger, rest_api_helpers, api_common
+- `api_factory.py` - Depends on: logger, rest_api_helpers, soap_api_helpers, api_common
+  - Creates: `RateLimiter`, `CircuitBreaker` instances
 - `script_runner.py` - Depends on: config_loader, oauth_helpers, logger, exceptions
+  - Token optional by default in v3.0
 
 ### Layer 6: User Scripts
-- `src/*.py` - Depends on: script_runner, api_factory, load_n_save, exceptions, logger
+- `examples/*.py` - Depends on: script_runner, api_factory, load_n_save, exceptions, logger, path_helpers
 
 ## Visual Dependency Graph
 
@@ -43,29 +51,30 @@ graph TD
     classDef user fill:#2F4F4F,stroke:#444,stroke-width:2px,color:#fff
 
     %% Foundation Layer (Blue)
-    exceptions[exceptions.py]:::foundation
-    path_helpers[path_helpers.py]:::foundation
+    exceptions[exceptions.py<br/>ErrorContext]:::foundation
+    path_helpers[path_helpers.py<br/>Dir constants]:::foundation
     
     %% Core Services (Green)
-    logger[logger.py]:::core
-    api_common[api_common.py]:::core
+    logger[logger.py<br/>TokenRedactionFilter<br/>ContextFilter]:::core
+    api_common[api_common.py<br/>RateLimiter<br/>CircuitBreaker]:::core
     
     %% Data Layer (Red)
-    load_n_save[load_n_save.py]:::data
+    load_n_save[load_n_save.py<br/>Universal save()]:::data
     
     %% API Implementation (Orange)
-    rest_api_helpers[rest_api_helpers.py]:::api
+    rest_api_helpers[rest_api_helpers.py<br/>SessionManager]:::api
+    soap_api_helpers[soap_api_helpers.py]:::api
     oauth_helpers[oauth_helpers.py]:::api
     url_helpers[url_helpers.py]:::api
     
     %% Orchestration (Purple)
     config_loader[config_loader.py]:::orchestration
-    api_factory[api_factory.py]:::orchestration
-    script_runner[script_runner.py]:::orchestration
+    api_factory[api_factory.py<br/>ApiManager]:::orchestration
+    script_runner[script_runner.py<br/>Token optional]:::orchestration
     concurrency[concurrency.py]:::orchestration
     
     %% User Scripts (Gray)
-    user_script[src/*.py]:::user
+    user_script[examples/*.py]:::user
     
     %% Dependencies
     logger --> path_helpers
@@ -83,6 +92,10 @@ graph TD
     rest_api_helpers --> exceptions
     rest_api_helpers --> api_common
     
+    soap_api_helpers --> logger
+    soap_api_helpers --> exceptions
+    soap_api_helpers --> api_common
+    
     url_helpers --> logger
     
     config_loader --> logger
@@ -92,6 +105,7 @@ graph TD
     
     api_factory --> logger
     api_factory --> rest_api_helpers
+    api_factory --> soap_api_helpers
     api_factory --> api_common
     
     concurrency --> logger
@@ -107,6 +121,7 @@ graph TD
     user_script --> load_n_save
     user_script --> exceptions
     user_script --> logger
+    user_script --> path_helpers
     user_script --> concurrency
 
     %% Legend
@@ -120,14 +135,75 @@ graph TD
     end
 ```
 
+## Key v3.0 Components
+
+### New Classes and Features
+
+#### path_helpers.py
+```python
+class Dir(str, Enum):
+    """Type-safe directory constants."""
+    CONFIG = "config"
+    DATA = "data"
+    OUTPUT = "output"
+    LOGS = "logs"
+    # ... more directories
+```
+
+#### exceptions.py
+```python
+@dataclass
+class ErrorContext:
+    """Structured error context for debugging."""
+    __slots__ = ['operation', 'resource', 'details']
+    operation: Optional[str] = None
+    resource: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+```
+
+#### logger.py
+```python
+class TokenRedactionFilter(logging.Filter):
+    """Redacts tokens including underscore-prefixed metadata."""
+    # Handles _token, _password, _client_secret, etc.
+
+class ContextFilter(logging.Filter):
+    """Adds org_id and elapsed time to logs."""
+```
+
+#### api_common.py
+```python
+class RateLimiter:
+    """Token bucket rate limiting."""
+    def wait_if_needed(self) -> None: ...
+
+class CircuitBreaker:
+    """Circuit breaker pattern."""
+    def is_open(self) -> bool: ...
+    def record_success(self) -> None: ...
+    def record_failure(self) -> None: ...
+```
+
+#### rest_api_helpers.py
+```python
+class SessionManager:
+    """Thread-safe session management with LRU cache."""
+    _max_cache_size = 50  # Prevents unbounded growth
+    
+class MinimalRestAPI:
+    """Enhanced with rate limiting and circuit breaker."""
+    def __init__(self, token, rate_limiter=None, circuit_breaker=None): ...
+    def _handle_async_operation(self, response): ...  # 202 Accepted
+```
+
 ## Common Operation Sequences
 
-### Script Initialization Sequence
+### Script Initialization (v3.0)
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Script as src/script.py
+    participant Script as examples/script.py
     participant Runner as script_runner
     participant Config as config_loader
     participant OAuth as oauth_helpers
@@ -135,14 +211,20 @@ sequenceDiagram
 
     User->>Script: python script.py org env
     Script->>Runner: parse_args_and_load_config()
+    
+    Note over Runner: require_token=False by default
+    
     Runner->>Logger: setup_logger(org_id)
+    
+    Note over Logger: Exit if configs missing:<br/>- logging-config.json<br/>- log-redaction-patterns.json
+    
     Runner->>Config: load_config(org, env)
     Config->>Config: load JSON files
-    Config->>Config: validate schema
+    Config->>Config: validate schema (mandatory)
     Config->>Config: inject secrets
     Config-->>Runner: config dict
     
-    alt Authentication Required
+    alt Token Required (explicit)
         Runner->>OAuth: get_client_credentials_token()
         OAuth->>OAuth: check cache
         alt Token Cached
@@ -154,27 +236,34 @@ sequenceDiagram
         Runner->>Config: inject _token
     end
     
-    Runner-->>Script: config with _org_id, _env_type, _token
+    Runner-->>Script: config with _org_id, _env_type, [_token]
     Script->>Script: main() executes
 ```
 
-### API Call with Resilience Features
+### API Call with v3.0 Resilience
 
 ```mermaid
 sequenceDiagram
-    participant Script as src/script.py
+    participant Script as examples/api_script.py
     participant Factory as api_factory
-    participant API as rest_api_helpers
+    participant API as MinimalRestAPI
     participant RateLimiter
     participant CircuitBreaker
-    participant Session
+    participant SessionMgr as SessionManager
     participant External as External API
 
     Script->>Factory: create_rest_api(config)
-    Factory->>Factory: parse config
-    Factory->>RateLimiter: create if enabled
-    Factory->>CircuitBreaker: create if enabled
-    Factory->>API: TxoRestAPI(limiter, breaker)
+    Factory->>Factory: parse nested config
+    
+    alt Rate Limiting Enabled
+        Factory->>RateLimiter: new RateLimiter(calls_per_second)
+    end
+    
+    alt Circuit Breaker Enabled
+        Factory->>CircuitBreaker: new CircuitBreaker(threshold, timeout)
+    end
+    
+    Factory->>API: MinimalRestAPI(token, limiter, breaker)
     Factory-->>Script: api instance
 
     Script->>API: api.get(url)
@@ -182,71 +271,96 @@ sequenceDiagram
     API->>CircuitBreaker: is_open()?
     alt Circuit Open
         CircuitBreaker-->>API: true
-        API-->>Script: ApiOperationError
+        API-->>Script: ApiOperationError("Circuit open")
     else Circuit Closed
         CircuitBreaker-->>API: false
-        API->>RateLimiter: wait_if_needed()
-        RateLimiter->>RateLimiter: throttle
         
-        API->>Session: request(url)
-        Session->>External: HTTP GET
+        API->>RateLimiter: wait_if_needed()
+        Note over RateLimiter: Token bucket algorithm
+        
+        API->>SessionMgr: get_session(key)
+        Note over SessionMgr: Thread-local + LRU cache<br/>Max 50 sessions
+        SessionMgr-->>API: session (reused or new)
+        
+        API->>External: HTTP GET
         
         alt Success (200)
-            External-->>Session: response
-            Session-->>API: response
+            External-->>API: response
             API->>CircuitBreaker: record_success()
             API-->>Script: data
+            
         else Rate Limited (429)
-            External-->>Session: 429 + Retry-After
-            Session-->>API: 429 response
-            API->>API: exponential backoff
-            API->>Session: retry request
-        else Server Error (500)
-            External-->>Session: 500 error
-            Session-->>API: error
+            External-->>API: 429 + Retry-After
+            API->>API: exponential backoff + jitter
+            API->>External: retry
+            
+        else Async Operation (202)
+            External-->>API: 202 + Location header
+            API->>API: _handle_async_operation()
+            
+            loop Poll until complete or timeout
+                API->>API: wait(Retry-After + jitter)
+                API->>External: GET Location
+                alt Complete (200)
+                    External-->>API: final result
+                    API-->>Script: result
+                else Still Processing (202)
+                    External-->>API: 202
+                    Note over API: Continue polling
+                else Timeout
+                    API-->>Script: ApiTimeoutError
+                end
+            end
+            
+        else Server Error (5xx)
+            External-->>API: 500
             API->>CircuitBreaker: record_failure()
             API->>API: retry with backoff
-        else Async Operation (202)
-            External-->>Session: 202 + Location
-            Session-->>API: 202 response
-            loop Poll until complete
-                API->>API: wait(Retry-After)
-                API->>Session: GET Location
-                Session->>External: check status
-                External-->>Session: status
-            end
-            API-->>Script: final result
         end
     end
 ```
 
-### File Save with Type Detection
+### Universal Save with Type Detection
 
 ```mermaid
 sequenceDiagram
-    participant Script as src/script.py
-    participant DataHandler as load_n_save
+    participant Script as examples/script.py
+    participant DataHandler as TxoDataHandler
     participant PathHelper as path_helpers
     participant FileSystem as File System
 
-    Script->>DataHandler: save(data, "output", "file.json")
-    DataHandler->>DataHandler: detect type from data
+    Script->>DataHandler: save(data, Dir.OUTPUT, "file.json")
+    
+    Note over DataHandler: Thread-safe lazy loading<br/>of pandas/yaml if needed
+    
+    DataHandler->>DataHandler: detect type from data + extension
     
     alt DataFrame detected
-        DataHandler->>DataHandler: check extension
+        DataHandler->>DataHandler: _ensure_pandas()
         alt .csv extension
             DataHandler->>DataFrame: to_csv()
         else .xlsx extension
+            DataHandler->>DataHandler: _ensure_openpyxl()
             DataHandler->>DataFrame: to_excel()
+        else .json extension
+            DataHandler->>DataFrame: to_json()
         end
     else Dict/List detected
-        DataHandler->>DataHandler: DecimalEncoder
-        DataHandler->>DataHandler: json.dumps()
+        alt .json extension
+            DataHandler->>DataHandler: DecimalEncoder
+            DataHandler->>DataHandler: json.dumps()
+        else .yaml extension
+            DataHandler->>DataHandler: _ensure_yaml()
+            DataHandler->>DataHandler: yaml.dump()
+        end
     else String detected
         DataHandler->>DataHandler: write as text
     end
     
-    DataHandler->>PathHelper: get_path("output", "file.json")
+    DataHandler->>PathHelper: get_path(Dir.OUTPUT, "file.json")
+    
+    Note over PathHelper: Type-safe Dir constant<br/>No string literals
+    
     PathHelper->>PathHelper: resolve path
     PathHelper-->>DataHandler: Path object
     
@@ -257,32 +371,34 @@ sequenceDiagram
 
 ## Refactoring Order
 
-When updating the template, follow this dependency order to avoid breaking changes:
+When updating the template, follow this dependency order:
 
-1. **Foundation** (no dependencies)
-   - exceptions.py
-   - path_helpers.py
+### Phase 1: Foundation (no dependencies)
+1. `exceptions.py` - Add ErrorContext, new exception types
+2. `path_helpers.py` - Add Dir constants
 
-2. **Core Services** (minimal dependencies)
-   - logger.py (depends on path_helpers)
-   - api_common.py (depends on logger)
+### Phase 2: Core Services (minimal dependencies)
+3. `logger.py` - Add TokenRedactionFilter, ContextFilter
+4. `api_common.py` - Add RateLimiter, CircuitBreaker
 
-3. **Data Layer** (foundation + core)
-   - load_n_save.py
+### Phase 3: Data Layer (foundation + core)
+5. `load_n_save.py` - Add universal save(), thread-safe loading
 
-4. **API Implementation** (all previous)
-   - oauth_helpers.py
-   - rest_api_helpers.py
-   - url_helpers.py
+### Phase 4: API Implementation (all previous)
+6. `oauth_helpers.py` - Update for v3.0
+7. `rest_api_helpers.py` - Add SessionManager, async handling
+8. `soap_api_helpers.py` - Update for v3.0
+9. `url_helpers.py` - Update for v3.0
 
-5. **Orchestration** (all previous)
-   - config_loader.py
-   - api_factory.py
-   - concurrency.py
-   - script_runner.py
+### Phase 5: Orchestration (all previous)
+10. `config_loader.py` - Mandatory validation
+11. `api_factory.py` - Create rate limiters, circuit breakers
+12. `concurrency.py` - Update for v3.0
+13. `script_runner.py` - Token optional by default
 
-6. **User Scripts** (everything)
-   - Update last after all utilities are working
+### Phase 6: User Scripts (everything)
+14. Update scripts to use Dir constants
+15. Remove unnecessary require_token=True
 
 ## Key Design Principles
 
@@ -293,45 +409,86 @@ When updating the template, follow this dependency order to avoid breaking chang
 
 ### 2. Single Responsibility
 Each module has one clear purpose:
-- `logger.py` - Only logging
-- `path_helpers.py` - Only path management
-- `api_factory.py` - Only API creation
+- `logger.py` - Only logging and redaction
+- `path_helpers.py` - Only path management and Dir constants
+- `api_factory.py` - Only API creation and configuration
 
 ### 3. Dependency Injection
-Configuration and dependencies are injected, not hardcoded:
+Configuration and dependencies are injected:
 ```python
 # Good - injected
 def process(config: Dict[str, Any]):
-    api = create_rest_api(config)
+    api = create_rest_api(config)  # Config injected
 
 # Bad - hardcoded
 def process():
-    api = create_rest_api(load_my_config())
+    config = load_my_config()  # Hidden dependency
+    api = create_rest_api(config)
 ```
 
 ### 4. Fail Fast Philosophy
-All required configuration uses hard-fail:
+Required configuration uses hard-fail:
 ```python
 # Good - fails immediately if missing
-url = config['global']['api-url']
+url = config['global']['api-url']  # KeyError if missing
 
 # Bad - silent failure
 url = config.get('global', {}).get('api-url', 'default')
 ```
 
+### 5. Type Safety (v3.0)
+Use type-safe constants instead of strings:
+```python
+# Good - type-safe
+from utils.path_helpers import Dir
+data = load(Dir.CONFIG, 'file.json')
+
+# Bad - error-prone strings
+data = load('config', 'file.json')
+```
+
 ## Testing Dependencies
 
-To test a module in isolation, you only need its dependencies:
+### Unit Testing Individual Modules
 
 ```bash
-# Test exceptions.py - no dependencies needed
-python -c "from utils.exceptions import HelpfulError; raise HelpfulError('test', 'fix', 'example')"
+# Test exceptions.py - no dependencies
+python -c "
+from utils.exceptions import HelpfulError, ErrorContext
+context = ErrorContext(operation='test')
+raise HelpfulError('test', 'fix', 'example')
+"
+
+# Test path_helpers.py - no dependencies
+python -c "
+from utils.path_helpers import Dir, get_path
+print(f'Dir.CONFIG = {Dir.CONFIG}')
+print(f'Path = {get_path(Dir.CONFIG, \"test.json\")}'')
+"
 
 # Test logger.py - needs path_helpers
-python -c "from utils.logger import setup_logger; logger = setup_logger(); logger.info('test')"
+python -c "
+from utils.logger import setup_logger
+logger = setup_logger()
+logger.info('Test with _token: [should be redacted]')
+"
 
-# Test api_factory.py - needs many dependencies
-# Better to use test_v2_features.py which tests everything
+# Test api_common.py - needs logger
+python -c "
+from utils.api_common import RateLimiter, CircuitBreaker
+limiter = RateLimiter(calls_per_second=10)
+breaker = CircuitBreaker(failure_threshold=5)
+print(f'Circuit open: {breaker.is_open()}')
+"
+```
+
+### Integration Testing
+```bash
+# Test v3.0 features
+python tests/test_features.py demo test
+
+# Test example script
+python examples/try_me_script.py demo test
 ```
 
 ## Common Circular Dependency Issues
@@ -340,78 +497,107 @@ python -c "from utils.logger import setup_logger; logger = setup_logger(); logge
 
 1. **Config in Logger**
    - Don't make logger depend on config_loader
-   - Logger should work with minimal setup
+   - Logger uses its own JSON loading
 
 2. **API in Exceptions**
-   - Exceptions shouldn't know about API details
-   - Keep exceptions generic
+   - Exceptions shouldn't import API modules
+   - Keep exceptions generic with ErrorContext
 
 3. **Script Runner in Helpers**
    - Helper modules shouldn't import script_runner
-   - Keep helpers independent
+   - Use dependency injection instead
 
 ### Signs of Circular Dependencies
-
-- ImportError at module level
+- `ImportError` at module level
 - Functions that import inside themselves
 - Modules that import each other
+- `cannot import name 'X' from partially initialized module`
 
 ### Resolution Strategy
-
 1. Move shared code to a lower layer
 2. Use dependency injection instead of imports
 3. Create a new intermediate module
-4. Use type hints with string literals for forward references
+4. Use type hints with string literals: `'ClassName'`
 
 ## Performance Considerations
 
 ### Import Cost
-Modules are imported in order of dependency. Heavy modules are loaded lazily:
+Heavy modules are loaded lazily:
 
 ```python
-# Good - lazy import
-def process_excel():
-    import pandas as pd  # Only loaded when needed
+class TxoDataHandler:
+    def __init__(self):
+        self._pd = None  # Lazy load pandas
+        self._yaml = None  # Lazy load yaml
+        self._import_lock = threading.Lock()
     
-# Bad - always imported
-import pandas as pd  # Loaded even if not used
+    def _ensure_pandas(self):
+        if self._pd is None:
+            with self._import_lock:
+                if self._pd is None:  # Double-check
+                    import pandas as pd
+                    self._pd = pd
 ```
 
 ### Singleton Patterns
-Several modules use singleton patterns for efficiency:
-- `logger.py` - Single logger instance
+Several modules use singleton patterns:
+- `logger.py` - Single TxoLogger instance
 - `config_loader.py` - Cached configuration
 - `api_factory.py` - Optional API instance caching
 
 ### Connection Pooling
-API modules reuse connections:
-- `rest_api_helpers.py` - SessionManager with LRU cache
-- Maximum 50 sessions cached
+API modules reuse connections efficiently:
+- `SessionManager` - Thread-local + shared cache
+- Maximum 50 sessions (LRU eviction)
+- Automatic cleanup on exit
+
+### Rate Limiting Performance
+- Token bucket algorithm (smooth, not bursty)
+- Minimal overhead when disabled
 - Thread-safe implementation
 
 ## Version Compatibility
 
-### v2.1 Breaking Changes
-- Config structure is nested (rate-limiting, circuit-breaker as objects)
-- All config access uses hard-fail
-- save_json() → save() with type detection
-- MinimalRestAPI → TxoRestAPI
+### v3.0 Breaking Changes
+- **Dir constants required** - No string literals for directories
+- **Token optional by default** - Was required in v2.x
+- **Universal save() method** - Replaces save_json(), save_excel()
+- **Nested configuration** - rate-limiting and circuit-breaker as objects
+- **Mandatory config files** - No defaults, script exits if missing
 
 ### Backward Compatibility
-Where possible, v2.1 maintains compatibility:
-- Old flat config can be migrated
-- Helper functions still work
+Limited compatibility maintained:
+- Old API still works with deprecation warnings
+- Config migration scripts available
 - Core patterns unchanged
+
+### v2.x → v3.0 Migration
+```python
+# Update imports
+from utils.path_helpers import Dir  # NEW
+
+# Update all path usage
+# OLD: data_handler.load_json('config', 'file.json')
+# NEW: data_handler.load_json(Dir.CONFIG, 'file.json')
+
+# Update token requirement
+# OLD: parse_args_and_load_config("Script")  # Token required
+# NEW: parse_args_and_load_config("Script")  # Token optional
+# NEW: parse_args_and_load_config("Script", require_token=True)  # Explicit
+
+# Update save methods
+# OLD: data_handler.save_json(data, 'output', 'file.json')
+# NEW: data_handler.save(data, Dir.OUTPUT, 'file.json')
+```
 
 ## Troubleshooting
 
 ### Module Not Found
 ```python
-ImportError: cannot import name 'X' from 'utils.Y'
+ImportError: cannot import name 'Dir' from 'utils.path_helpers'
 ```
-- Check if module exists
-- Verify no typos in import
-- Ensure dependencies are installed
+- Ensure using v3.0 of template
+- Check path_helpers.py has Dir class
 
 ### Circular Import
 ```python
@@ -419,28 +605,69 @@ ImportError: cannot import name 'X' from partially initialized module
 ```
 - Check dependency graph above
 - Move shared code to lower layer
-- Use lazy imports
+- Use lazy imports in functions
 
 ### Type Errors
 ```python
-TypeError: X() takes no arguments
+TypeError: expected Dir, got str
 ```
-- Check if using v2.1 syntax
-- Verify config structure matches
-- Update to new class names
+- Update to use Dir constants
+- Import Dir from path_helpers
+
+### Config Structure Errors
+```python
+KeyError: 'rate-limiting'
+```
+- Update config to nested structure
+- Check against schema
 
 ## Future Architecture Considerations
 
 ### Potential Improvements
-1. **Plugin System** - Dynamic helper loading
-2. **Async Support** - asyncio for I/O operations
-3. **Caching Layer** - Redis/memcached integration
-4. **Message Queue** - For long-running operations
-5. **Metrics Collection** - Performance monitoring
+1. **Async/Await Support** - Full asyncio implementation
+2. **Plugin System** - Dynamic helper loading
+3. **Distributed Tracing** - OpenTelemetry integration
+4. **Message Queue** - Celery/RabbitMQ for long operations
+5. **Metrics Collection** - Prometheus integration
+6. **GraphQL Support** - In addition to REST/SOAP
 
 ### Maintaining the Architecture
 1. Keep dependencies unidirectional
-2. Document any new modules in this diagram
+2. Document new modules in this diagram
 3. Add tests for new dependencies
-4. Update refactoring order when adding modules
-5. Consider impact on all layers when changing interfaces
+4. Update refactoring order for new modules
+5. Consider performance impact
+6. Maintain type safety with Dir constants
+7. Follow fail-fast philosophy
+
+## Module Interface Contracts
+
+### Foundation Layer
+- **No external dependencies**
+- **No I/O operations**
+- **Pure Python only**
+
+### Core Services Layer
+- **Minimal dependencies (foundation only)**
+- **No business logic**
+- **Reusable utilities**
+
+### Data Layer
+- **Handle all I/O operations**
+- **Type detection and conversion**
+- **Thread-safe operations**
+
+### API Layer
+- **Protocol-specific implementations**
+- **Resilience patterns built-in**
+- **Connection management**
+
+### Orchestration Layer
+- **Compose lower layers**
+- **Configuration management**
+- **High-level workflows**
+
+### User Scripts Layer
+- **Use all available layers**
+- **Business logic here**
+- **No framework modifications**

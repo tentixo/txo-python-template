@@ -1,12 +1,14 @@
 # utils/path_helpers.py
 """
-Enhanced path management with validation and utility functions.
+Enhanced path management with type safety and validation.
 
 Provides centralized path management with:
+- Type-safe category constants and literals
 - Memory-efficient frozen dataclass with __slots__
 - Path validation and existence checking
 - Cleanup utilities
 - Size calculation helpers
+- No fuzzy matching - fail fast on errors
 """
 
 import os
@@ -14,8 +16,48 @@ import shutil
 from pathlib import Path
 from functools import lru_cache
 from dataclasses import dataclass
-from typing import Optional, Set, List, Tuple, Union, Dict
+from typing import Optional, Set, List, Tuple, Union, Dict, Literal
 from datetime import datetime, timedelta
+
+# Type-safe category literal for IDE support
+CategoryType = Literal[
+    'config', 'data', 'files', 'generated_payloads',
+    'logs', 'output', 'payloads', 'schemas', 'tmp', 'wsdl'
+]
+
+
+class Dir:
+    """
+    Directory category constants to prevent typos.
+
+    Use these constants instead of strings for type safety:
+        Dir.CONFIG instead of 'config'
+        Dir.OUTPUT instead of 'output'
+    """
+    CONFIG: CategoryType = 'config'
+    DATA: CategoryType = 'data'
+    FILES: CategoryType = 'files'
+    GENERATED_PAYLOADS: CategoryType = 'generated_payloads'
+    LOGS: CategoryType = 'logs'
+    OUTPUT: CategoryType = 'output'
+    PAYLOADS: CategoryType = 'payloads'
+    SCHEMAS: CategoryType = 'schemas'
+    TMP: CategoryType = 'tmp'
+    WSDL: CategoryType = 'wsdl'
+
+    @classmethod
+    def all(cls) -> Set[CategoryType]:
+        """Get all valid categories."""
+        return {
+            cls.CONFIG, cls.DATA, cls.FILES, cls.GENERATED_PAYLOADS,
+            cls.LOGS, cls.OUTPUT, cls.PAYLOADS, cls.SCHEMAS,
+            cls.TMP, cls.WSDL
+        }
+
+    @classmethod
+    def validate(cls, category: str) -> bool:
+        """Check if a category is valid."""
+        return category in cls.all()
 
 
 @dataclass(frozen=True)
@@ -158,12 +200,13 @@ class ProjectPaths:
         return sizes
 
 
-def get_path(category: str, filename: str, ensure_parent: bool = True) -> Path:
+def get_path(category: CategoryType, filename: str, ensure_parent: bool = True) -> Path:
     """
     Get the full path for a file in a specified category directory.
 
     Args:
-        category: Directory category (e.g., "logs", "config", "data")
+        category: Directory category - must be exact match from Categories constants
+                  (e.g., Categories.CONFIG, Categories.OUTPUT)
         filename: Target filename (e.g., "config.json")
         ensure_parent: If True, create the parent directory if it doesn't exist
 
@@ -171,37 +214,33 @@ def get_path(category: str, filename: str, ensure_parent: bool = True) -> Path:
         The full path to the file
 
     Raises:
-        ValueError: If the category is not a valid ProjectPaths attribute
+        ValueError: If the category is not a valid CategoryType
         OSError: If directory creation fails when ensure_parent is True
 
     Example:
-         config_path = get_path('config', 'app-config.json')
-         log_path = get_path('logs', 'app.log')
+        > from utils.path_helpers import get_path, Categories
+        > config_path = get_path(Categories.CONFIG, 'app-config.json')
+        > log_path = get_path(Categories.LOGS, 'app.log')
     """
     paths = ProjectPaths.init()
 
-    # Get all valid Path attributes from ProjectPaths
-    valid_categories = set(paths.__slots__) - {'root'}
+    # Hard fail on invalid category - no fuzzy matching
+    if not Dir.validate(category):
+        raise ValueError(
+            f"Invalid category '{category}'. "
+            f"Must be exactly one of: {', '.join(sorted(Dir.all()))}\n"
+            f"Use Categories.* constants for type safety (e.g., Categories.CONFIG)"
+        )
 
-    if category not in valid_categories:
-        # Try common variations (singular/plural)
-        if category == 'log' and 'logs' in valid_categories:
-            category = 'logs'
-        elif category == 'file' and 'files' in valid_categories:
-            category = 'files'
-        elif category == 'schema' and 'schemas' in valid_categories:
-            category = 'schemas'
-        elif category == 'payload' and 'payloads' in valid_categories:
-            category = 'payloads'
-        else:
-            raise ValueError(
-                f"Invalid category '{category}'. Must be one of: {', '.join(sorted(valid_categories))}"
-            )
-
-    path = getattr(paths, category) / filename
+    # Convert hyphenated categories to underscored attributes
+    attr_name = category.replace('-', '_')
+    path = getattr(paths, attr_name) / filename
 
     if ensure_parent:
-        path.parent.mkdir(exist_ok=True, parents=True)
+        try:
+            path.parent.mkdir(exist_ok=True, parents=True)
+        except OSError as e:
+            raise OSError(f"Cannot create parent directory for {path}: {e}")
 
     return path
 
@@ -217,13 +256,16 @@ def set_project_root(path: Union[str, Path]) -> None:
         ValueError: If the path doesn't exist or isn't a directory
 
     Example:
-         set_project_root('/path/to/project')
-         config_file = get_path('config', 'settings.json')
+        > set_project_root('/path/to/project')
+        > config_file = get_path(Categories.CONFIG, 'settings.json')
     """
     root_path = Path(path) if isinstance(path, str) else path
 
-    if not root_path.exists() or not root_path.is_dir():
-        raise ValueError(f"Invalid project root: {root_path} (must be an existing directory)")
+    if not root_path.exists():
+        raise ValueError(f"Project root does not exist: {root_path}")
+
+    if not root_path.is_dir():
+        raise ValueError(f"Project root must be a directory, not a file: {root_path}")
 
     # Clear the lru_cache to force reinitialization with the new path
     ProjectPaths.init.cache_clear()
@@ -242,13 +284,13 @@ def get_project_root() -> Path:
     return ProjectPaths.init().root
 
 
-def cleanup_old_files(category: str, days: int = 30,
+def cleanup_old_files(category: CategoryType, days: int = 30,
                       pattern: str = "*", dry_run: bool = False) -> List[Path]:
     """
     Clean up old files from a category directory.
 
     Args:
-        category: Directory category to clean
+        category: Directory category to clean (use Categories.*)
         days: Delete files older than this many days
         pattern: File pattern to match (default: "*")
         dry_run: If True, only report what would be deleted
@@ -256,16 +298,20 @@ def cleanup_old_files(category: str, days: int = 30,
     Returns:
         List of deleted (or would-be deleted) file paths
 
+    Raises:
+        ValueError: If category is invalid
+
     Example:
-         # Delete logs older than 7 days
-         deleted = cleanup_old_files('logs', days=7, pattern="*.log")
+        > # Delete logs older than 7 days
+        > deleted = cleanup_old_files(Categories.LOGS, days=7, pattern="*.log")
     """
+    if not Dir.validate(category):
+        raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
+
     paths = ProjectPaths.init()
+    attr_name = category.replace('-', '_')
+    directory = getattr(paths, attr_name)
 
-    if not hasattr(paths, category):
-        raise ValueError(f"Invalid category: {category}")
-
-    directory = getattr(paths, category)
     if not directory.exists():
         return []
 
@@ -280,7 +326,7 @@ def cleanup_old_files(category: str, days: int = 30,
                 if not dry_run:
                     try:
                         file_path.unlink()
-                    except OSError:
+                    except OSError as e:
                         # Continue processing other files
                         pass
 
@@ -315,34 +361,55 @@ def cleanup_tmp(max_age_hours: int = 24) -> int:
                 elif item.is_dir():
                     shutil.rmtree(item)
                 deleted_count += 1
-        except OSError:
+        except OSError as e:
             # Continue with other items
             pass
 
     return deleted_count
 
 
-def get_dir_size(category: str, human_readable: bool = True) -> Union[str, int]:
+def format_size(size_bytes: int) -> str:
+    """
+    Format bytes as human-readable string.
+
+    Args:
+        size_bytes: Size in bytes
+
+    Returns:
+        Formatted string (e.g., "1.5 MB")
+    """
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} PB"
+
+
+def get_dir_size(category: CategoryType, human_readable: bool = True) -> Union[str, int]:
     """
     Get the total size of a category directory.
 
     Args:
-        category: Directory category
+        category: Directory category (use Categories.*)
         human_readable: If True, return formatted string, else bytes
 
     Returns:
         Directory size as formatted string or integer bytes
 
+    Raises:
+        ValueError: If category is invalid
+
     Example:
-         size = get_dir_size('output', human_readable=True)
-         print(f"Output directory size: {size}")
+        > size = get_dir_size(Categories.OUTPUT, human_readable=True)
+        > print(f"Output directory size: {size}")
     """
+    if not Dir.validate(category):
+        raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
+
     paths = ProjectPaths.init()
+    attr_name = category.replace('-', '_')
+    directory = getattr(paths, attr_name)
 
-    if not hasattr(paths, category):
-        raise ValueError(f"Invalid category: {category}")
-
-    directory = getattr(paths, category)
     if not directory.exists():
         return "0 B" if human_readable else 0
 
@@ -351,61 +418,69 @@ def get_dir_size(category: str, human_readable: bool = True) -> Union[str, int]:
     if not human_readable:
         return total_size
 
-    # Format as human-readable
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if total_size < 1024.0:
-            return f"{total_size:.2f} {unit}"
-        total_size /= 1024.0
-
-    return f"{total_size:.2f} PB"
+    return format_size(total_size)
 
 
-def list_files(category: str, pattern: str = "*",
+def list_files(category: CategoryType, pattern: str = "*",
                recursive: bool = False) -> List[Path]:
     """
     List files in a category directory.
 
     Args:
-        category: Directory category
+        category: Directory category (use Categories.*)
         pattern: File pattern to match
         recursive: If True, search recursively
 
     Returns:
         List of file paths matching the pattern
 
+    Raises:
+        ValueError: If category is invalid
+
     Example:
-         json_files = list_files('config', pattern="*.json")
+        > json_files = list_files(Categories.CONFIG, pattern="*.json")
     """
+    if not Dir.validate(category):
+        raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
+
     paths = ProjectPaths.init()
+    attr_name = category.replace('-', '_')
+    directory = getattr(paths, attr_name)
 
-    if not hasattr(paths, category):
-        raise ValueError(f"Invalid category: {category}")
-
-    directory = getattr(paths, category)
     if not directory.exists():
         return []
 
     if recursive:
-        return sorted([f for f in directory.rglob(pattern) if f.is_file()])
+        files = [f for f in directory.rglob(pattern) if f.is_file()]
     else:
-        return sorted([f for f in directory.glob(pattern) if f.is_file()])
+        files = [f for f in directory.glob(pattern) if f.is_file()]
+
+    return sorted(files)
 
 
-def ensure_file_backup(category: str, filename: str, max_backups: int = 5) -> Optional[Path]:
+def ensure_file_backup(category: CategoryType, filename: str,
+                       max_backups: int = 5) -> Optional[Path]:
     """
     Create a backup of a file before overwriting it.
 
     Args:
-        category: Directory category
+        category: Directory category (use Categories.*)
         filename: File to backup
         max_backups: Maximum number of backups to keep
 
     Returns:
         Path to backup file if created, None if file doesn't exist
 
+    Raises:
+        ValueError: If category is invalid
+        OSError: If backup creation fails
+
     Example:
-         backup_path = ensure_file_backup('config', 'settings.json')
+        > backup_path = ensure_file_backup(Categories.CONFIG, 'settings.json')
     """
+    if not Dir.validate(category):
+        raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
+
     original_path = get_path(category, filename, ensure_parent=False)
 
     if not original_path.exists():
