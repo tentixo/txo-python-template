@@ -26,13 +26,13 @@ CategoryType = Literal[
 ]
 
 
-class Categories:
+class Dir:
     """
     Directory category constants to prevent typos.
 
     Use these constants instead of strings for type safety:
-        Categories.CONFIG instead of 'config'
-        Categories.OUTPUT instead of 'output'
+        Dir.CONFIG instead of 'config'
+        Dir.OUTPUT instead of 'output'
     """
     CONFIG: CategoryType = 'config'
     DATA: CategoryType = 'data'
@@ -225,10 +225,10 @@ def get_path(category: CategoryType, filename: str, ensure_parent: bool = True) 
     paths = ProjectPaths.init()
 
     # Hard fail on invalid category - no fuzzy matching
-    if not Categories.validate(category):
+    if not Dir.validate(category):
         raise ValueError(
             f"Invalid category '{category}'. "
-            f"Must be exactly one of: {', '.join(sorted(Categories.all()))}\n"
+            f"Must be exactly one of: {', '.join(sorted(Dir.all()))}\n"
             f"Use Categories.* constants for type safety (e.g., Categories.CONFIG)"
         )
 
@@ -305,7 +305,7 @@ def cleanup_old_files(category: CategoryType, days: int = 30,
         > # Delete logs older than 7 days
         > deleted = cleanup_old_files(Categories.LOGS, days=7, pattern="*.log")
     """
-    if not Categories.validate(category):
+    if not Dir.validate(category):
         raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
 
     paths = ProjectPaths.init()
@@ -403,7 +403,7 @@ def get_dir_size(category: CategoryType, human_readable: bool = True) -> Union[s
         > size = get_dir_size(Categories.OUTPUT, human_readable=True)
         > print(f"Output directory size: {size}")
     """
-    if not Categories.validate(category):
+    if not Dir.validate(category):
         raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
 
     paths = ProjectPaths.init()
@@ -440,7 +440,7 @@ def list_files(category: CategoryType, pattern: str = "*",
     Example:
         > json_files = list_files(Categories.CONFIG, pattern="*.json")
     """
-    if not Categories.validate(category):
+    if not Dir.validate(category):
         raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
 
     paths = ProjectPaths.init()
@@ -478,7 +478,7 @@ def ensure_file_backup(category: CategoryType, filename: str,
     Example:
         > backup_path = ensure_file_backup(Categories.CONFIG, 'settings.json')
     """
-    if not Categories.validate(category):
+    if not Dir.validate(category):
         raise ValueError(f"Invalid category: {category}. Use Categories.* constants")
 
     original_path = get_path(category, filename, ensure_parent=False)

@@ -125,11 +125,12 @@ Always use `get_path()` from path_helpers.
 Use type-safe Categories constants instead of string literals.
 
 ### Implementation
+
 ```python
-from utils.path_helpers import Categories
+from utils.path_helpers import Dir
 
 # v3.0 - Type-safe
-get_path(Categories.CONFIG, 'settings.json')
+get_path(Dir.CONFIG, 'settings.json')
 
 # v1-v2 - String-based (deprecated)
 get_path('config', 'settings.json')
@@ -233,15 +234,18 @@ String literals for directory names ('config', 'output') cause typos and lack ID
 Implement Categories class with type-safe constants and CategoryType literal.
 
 ### Implementation
+
 ```python
 class Categories:
     CONFIG: CategoryType = 'config'
     OUTPUT: CategoryType = 'output'
     # ... etc
 
+
 # Usage
-from utils.path_helpers import Categories
-data_handler.save(data, Categories.OUTPUT, 'file.json')
+from utils.path_helpers import Dir
+
+data_handler.save(data, Dir.OUTPUT, 'file.json')
 ```
 
 ### Consequences

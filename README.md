@@ -12,7 +12,7 @@
 ## What's New in v3.0.0
 
 ### 🎯 Major Improvements
-- **Type-Safe Path Management** - Use `Categories.CONFIG` instead of `'config'` strings
+- **Type-Safe Path Management** - Use `Dir.CONFIG` instead of `'config'` strings
 - **Token Optional by Default** - Most scripts don't need authentication
 - **Smart I/O** - Single `save()` method auto-detects file types
 - **Mandatory Security** - No defaults, configs required for all scripts
@@ -40,22 +40,17 @@ uv pip install -r pyproject.toml
 ```
 
 ### Step 2: Copy Required Config Files
-
 ```bash
-# Copy MANDATORY config templates
-cp config/templates/logging-config.json config/
-cp config/templates/log-redaction-patterns.json config/
-
 # Copy example config for your org/env
-cp config/templates/org-env-config_example.json config/demo-test-config.json
-cp config/templates/org-env-config-secrets_example.json config/demo-test-config-secrets.json
+cp config/templates/org-env-config_example.json config/myorg-test-config.json  # Note: myorg and test should be replaced with your org and env
+cp config/templates/org-env-config-secrets_example.json config/myorg-test-config-secrets.json # Note: myorg and test should be replaced with your org and env
 ```
 
 ### Step 3: Run the Try-Me Script
 
 ```bash
 # Test everything works with our simple demo
-python examples/try-me-script.py demo test
+python examples/try_me_script.py demo test
 
 # This will:
 # 1. Validate all config files exist
@@ -68,24 +63,24 @@ python examples/try-me-script.py demo test
 
 ### 1. Type-Safe Path Management (NEW)
 ```python
-from utils.path_helpers import Categories
+from utils.path_helpers import Dir
 
-# ALWAYS use Categories constants
-config = data_handler.load_json(Categories.CONFIG, 'settings.json')
-data_handler.save(results, Categories.OUTPUT, 'results.json')
+# ALWAYS use Dir constants
+config = data_handler.load_json(Dir.CONFIG, 'settings.json')
+data_handler.save(results, Dir.OUTPUT, 'results.json')
 
 # NEVER use strings
 # config = data_handler.load_json('config', 'settings.json')  # NO!
 ```
 
-Available categories:
-- `Categories.CONFIG` - Configuration files
-- `Categories.DATA` - Input data files
-- `Categories.OUTPUT` - Generated output
-- `Categories.LOGS` - Log files
-- `Categories.TMP` - Temporary files
-- `Categories.SCHEMAS` - JSON schemas
-- Plus: FILES, GENERATED_PAYLOADS, PAYLOADS, WSDL
+Available directories:
+- `Dir.CONFIG` - Configuration files
+- `Dir.DATA` - Input data files
+- `Dir.OUTPUT` - Generated output
+- `Dir.LOGS` - Log files
+- `Dir.TMP` - Temporary files
+- `Dir.SCHEMAS` - JSON schemas
+- Plus: FILES, GENERATED_PAYLOADS, PAYLOADS, WSDL, AI
 
 ### 2. Token is Optional (CHANGED)
 ```python
@@ -105,14 +100,14 @@ config = parse_args_and_load_config(
 ### 3. Smart Save/Load (NEW)
 ```python
 # One method for everything - auto-detects from extension
-data_handler.save(dict_data, Categories.OUTPUT, "data.json")      # JSON
-data_handler.save(dataframe, Categories.OUTPUT, "report.xlsx")    # Excel
-data_handler.save(dataframe, Categories.OUTPUT, "report.csv")     # CSV
-data_handler.save("text", Categories.OUTPUT, "readme.txt")        # Text
-data_handler.save(config, Categories.CONFIG, "settings.yaml")     # YAML
+data_handler.save(dict_data, Dir.OUTPUT, "data.json")      # JSON
+data_handler.save(dataframe, Dir.OUTPUT, "report.xlsx")    # Excel
+data_handler.save(dataframe, Dir.OUTPUT, "report.csv")     # CSV
+data_handler.save("text", Dir.OUTPUT, "readme.txt")        # Text
+data_handler.save(config, Dir.CONFIG, "settings.yaml")     # YAML
 
 # Load also auto-detects
-data = data_handler.load(Categories.DATA, "input.csv")  # Returns DataFrame
+data = data_handler.load(Dir.DATA, "input.csv")  # Returns DataFrame
 ```
 
 ### 4. Mandatory Configuration (ENHANCED)
@@ -121,7 +116,7 @@ data = data_handler.load(Categories.DATA, "input.csv")  # Returns DataFrame
 logger = setup_logger()  # Exits if logging configs missing
 
 # Configuration MUST exist - no defaults
-config = parse_args_and_load_config("Script")  # Exits if config missing
+config = parse_args_and_load_config('Script')  # Exits if config missing
 
 # Hard fail on missing keys - no soft defaults
 api_url = config['global']['api-base-url']  # KeyError is good!
@@ -149,31 +144,38 @@ api_url = config['global']['api-base-url']  # KeyError is good!
 
 ```
 txo-python-template/
+├── ai/                     # Files to and from ai
+├── config/                 
+│   ├── templates/          # Example configs to copy
+│   ├── log-redaction-patterns.json # MANDATORY
+│   ├── logging-config.json         # MANDATORY
+│   ├── {org}-{env}-config-secrets.json
+│   └── {org}-{env}-config.json
+├── data/                   # Input data files
 ├── examples/               # Example scripts (NEW location)
-│   └── try-me-script.py    # ⭐ START HERE
+│   └── try_me_script.py    # ⭐ START HERE
+├── files/                  # Files from elsewhere used as-is
+├── generated_payloads/     # For generated payloads to validate before sending
+├── logs/                   # Log files (gitignored)
+├── output/                 # Generated general files
+├── payloads/               # Ready to send payloads, moved here from generated_payloads/
+├── schemas/
+│   └── org-env-config-schema.json  # Validates all configs
+├── src/                    # Source code: Your main scripts
 ├── tests/                  # Test scripts (NEW location)
 │   └── test_features.py    # Feature validation
-├── utils/                  # Core framework (DON'T MODIFY)
+├── tmp/                    # Temp files (not checked in)
+├── utils/                  # Helper files (DON'T MODIFY)
 │   ├── api_common.py       # Rate limiting, circuit breaker
 │   ├── api_factory.py      # API client creation
 │   ├── config_loader.py    # Config validation
 │   ├── exceptions.py       # HelpfulError pattern
 │   ├── load_n_save.py      # Smart I/O with auto-detection
 │   ├── logger.py           # Mandatory security logging
-│   ├── path_helpers.py     # Categories constants (NEW)
+│   ├── path_helpers.py     # Dir constants (NEW)
 │   ├── rest_api_helpers.py # REST client
 │   └── script_runner.py    # Script initialization
-├── config/                 
-│   ├── templates/          # Example configs to copy
-│   ├── {org}-{env}-config.json
-│   ├── {org}-{env}-config-secrets.json
-│   ├── logging-config.json         # MANDATORY
-│   └── log-redaction-patterns.json # MANDATORY
-├── schemas/
-│   └── org-env-config-schema.json  # Validates all configs
-├── output/                 # Generated files
-├── logs/                   # Log files (gitignored)
-└── data/                   # Input data files
+└── wsdl/                   # WSDL files
 ```
 
 ## Configuration Files
@@ -253,7 +255,7 @@ from datetime import datetime, timezone
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.load_n_save import TxoDataHandler
-from utils.path_helpers import Categories
+from utils.path_helpers import Dir
 from utils.exceptions import HelpfulError
 
 logger = setup_logger()
@@ -268,14 +270,14 @@ def main():
     logger.info(f"Starting for {org_id}-{env_type}")
     
     # Load data
-    data = data_handler.load(Categories.DATA, "input.csv")
+    data = data_handler.load(Dir.DATA, "input.csv")
     
     # Process...
     
     # Save with timestamp
     utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
     filename = f"{org_id}-{env_type}-results_{utc}.xlsx"
-    data_handler.save(data, Categories.OUTPUT, filename)
+    data_handler.save(data, Dir.OUTPUT, filename)
 
 if __name__ == "__main__":
     main()
@@ -289,7 +291,7 @@ if __name__ == "__main__":
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.api_factory import create_rest_api
-from utils.path_helpers import Categories
+from utils.path_helpers import Dir
 
 logger = setup_logger()
 
@@ -313,13 +315,13 @@ if __name__ == "__main__":
 
 ### Breaking Changes
 
-1. **Path strings → Categories constants**
+1. **Path strings → Dir constants**
    ```python
    # Old (v2.x)
    data_handler.load_json('config', 'settings.json')
    
    # New (v3.0)
-   data_handler.load_json(Categories.CONFIG, 'settings.json')
+   data_handler.load_json(Dir.CONFIG, 'settings.json')
    ```
 
 2. **Token required → optional by default**
@@ -357,7 +359,7 @@ if __name__ == "__main__":
 ## Best Practices
 
 ### ✅ DO
-- Use Categories constants for all paths
+- Use Dir constants for all paths
 - Let config access hard-fail (no `.get()` for required keys)
 - Use `save()` for all file types (auto-detection)
 - Include UTC timestamps in output filenames
@@ -375,7 +377,7 @@ if __name__ == "__main__":
 
 ```bash
 # Run example script (no auth needed)
-python examples/try-me-script.py demo test
+python examples/try_me_script.py demo test
 
 # Run with custom org/env
 python examples/script.py mycompany prod
@@ -402,15 +404,15 @@ Configuration file not found!
 ✅ Solution: Either configure OAuth or use require_token=False
 ```
 
-### Invalid Category
+### Invalid Directory
 ```
-ValueError: Invalid category 'config'. Use Categories.* constants
+ValueError: Invalid directory 'config'. Use Dir.* constants
 ```
-**Solution**: Import and use `Categories.CONFIG` instead of `'config'`
+**Solution**: Import and use `Dir.CONFIG` instead of `'config'`
 
 ## Documentation
 
-- **[Architecture Decisions](ai/decided/adr-records.md)** - Why we built it this way
+- **[Architecture Decisions](ai/decided/adr_v3.md)** - Why we built it this way
 - **[In-Depth Guide](in-depth-readme.md)** - Comprehensive documentation
 - **[Module Dependencies](module-dependency-diagram.md)** - Visual architecture
 - **AI Assistance** - Upload `ai/prompts/txo-xml-prompt-v3.0.xml` to Claude/GPT-4
