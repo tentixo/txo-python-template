@@ -69,9 +69,14 @@ data_handler = TxoDataHandler()
 
 # Universal save - auto-detects format from data type + extension
 data_handler.save(dict_data, Dir.OUTPUT, "report.json") -> Path  # JSON
-data_handler.save(dataframe, Dir.OUTPUT, "data.xlsx") -> Path  # Excel
+data_handler.save(dataframe, Dir.OUTPUT, "data.xlsx") -> Path  # Excel single sheet "Data"
 data_handler.save(dataframe, Dir.OUTPUT, "data.csv") -> Path  # CSV
 data_handler.save("text", Dir.OUTPUT, "log.txt") -> Path  # Text
+
+# Multi-sheet Excel (v3.1.1) - Dict of DataFrames auto-detected
+sheets = {"Summary": summary_df, "Details": details_df, "Errors": errors_df}
+data_handler.save(sheets, Dir.OUTPUT, "report.xlsx") -> Path  # Multi-sheet Excel
+data_handler.save_with_timestamp(sheets, Dir.OUTPUT, "report.xlsx", add_timestamp=True) -> Path  # report_2025-09-28T123456Z.xlsx
 
 # UTC Timestamp saving (v3.1) - TXO standard format: 2025-01-25T143045Z
 timestamp = data_handler.get_utc_timestamp() -> str  # "2025-01-25T143045Z"
@@ -327,8 +332,9 @@ session = requests.Session()  # Use create_rest_api(config, require_auth=False)
 class CustomAPIClient: ...
 class RateLimitedClient: ...
 
-# ❌ DON'T CREATE - Use get_utc_timestamp() instead
-utc_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")  # Use TxoDataHandler.get_utc_timestamp()
+# ❌ DON'T CREATE - Use save_with_timestamp() instead
+utc_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")  # Use save_with_timestamp()
+filename = f"report_{timestamp}.xlsx"  # Use save_with_timestamp(data, Dir.OUTPUT, "report.xlsx", add_timestamp=True)
 
 # ❌ DON'T CREATE - Use Dir constants instead
 DIRECTORIES = {"config": "config", "output": "output"}
@@ -444,7 +450,13 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 
 ## Version History
 
-### v3.1 (Current)
+### v3.1.1 (Current)
+
+- Added multi-sheet Excel support with dict of DataFrames auto-detection
+- Enhanced smart format validation for Excel multi-sheet patterns
+- Single DataFrame auto-names sheet as "Data" for consistency
+
+### v3.1
 
 - Organized by use case to prevent AI hallucination
 - Added anti-patterns and complete script examples
@@ -457,7 +469,7 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 
 ---
 
-**Version:** v3.1  
-**Last Updated:** 2025-01-25  
-**Domain:** TXO Utils Reference  
+**Version:** v3.1.1
+**Last Updated:** 2025-09-28
+**Domain:** TXO Utils Reference
 **Purpose:** Prevent AI hallucination by showing existing functions
