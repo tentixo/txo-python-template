@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from utils.config_loader import ConfigLoader
 from utils.logger import setup_logger
 from utils.oauth_helpers import OAuthClient
-from utils.exceptions import HelpfulError
+from utils.exceptions import HelpfulError, ConfigurationError, ValidationError
 
 # Module logger - no org_id injection
 logger = setup_logger()
@@ -120,20 +120,32 @@ class ScriptRunner:
                 include_secrets=True
             )
 
-            # Check if using minimal/example config
-            global_section = config.get("global", {})
+            # Check if using minimal/example config - hard-fail if global section missing
+            global_section = config["global"]  # Hard-fail if missing
             if not global_section.get("tenant-id") and not global_section.get("client-id"):
                 logger.debug("Using configuration without OAuth settings (suitable for local scripts)")
 
         except HelpfulError:
             raise  # Already formatted nicely
+        except (ConfigurationError, ValidationError) as e:
+            # Convert config/validation errors to user-friendly format
+            raise HelpfulError(
+                what_went_wrong=f"Configuration validation failed: {e}",
+                how_to_fix=(
+                    f"Check your configuration files:\n"
+                    f"  1. Verify config/{org_id}-{env_type}-config.json exists and is valid JSON\n"
+                    f"  2. Check schema compliance (copy from examples if needed)\n"
+                    f"  3. Verify all required fields are present"
+                ),
+                example=f"cp config/org-env-config_example.json config/{org_id}-{env_type}-config.json"
+            ) from e
         except FileNotFoundError:
             raise HelpfulError(
                 what_went_wrong=f"Configuration file not found for {org_id}-{env_type}",
                 how_to_fix=(
                     f"Create config files:\n"
-                    f"  1. cp config/templates/org-env-config_example.json config/{org_id}-{env_type}-config.json\n"
-                    f"  2. cp config/templates/org-env-config-secrets_example.json config/{org_id}-{env_type}-config-secrets.json\n"
+                    f"  1. cp config/org-env-config_example.json config/{org_id}-{env_type}-config.json\n"
+                    f"  2. cp config/org-env-config-secrets_example.json config/{org_id}-{env_type}-config-secrets.json\n"
                     f"  3. Edit the files as needed (can leave as-is for simple scripts)"
                 ),
                 example="For a simple script, the example config works as-is"
@@ -178,7 +190,7 @@ class ScriptRunner:
                 return fallback_token
 
             # Extract OAuth config (hard-fail if missing when required)
-            global_config = config.get("global", {})
+            global_config = config["global"]  # Hard-fail if missing
 
             tenant_id = global_config.get("tenant-id")
             client_id = global_config.get("client-id")

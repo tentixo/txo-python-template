@@ -165,7 +165,6 @@ class OAuthClient:
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("https://", adapter)
-        session.mount("http://", adapter)
 
         return session
 
@@ -362,7 +361,8 @@ class OAuthClient:
 
         return True
 
-    def clear_cache(self) -> None:
+    @staticmethod
+    def clear_cache() -> None:
         """Clear all cached tokens."""
         _token_cache.clear()
 

@@ -449,8 +449,8 @@ class TxoLogger:
             print(error_msg, file=sys.stderr)
             sys.exit(1)
 
-        # Check TxoApp logger is configured
-        if 'TxoApp' not in config.get('loggers', {}):
+        # Check TxoApp logger is configured - hard-fail if loggers section missing
+        if 'TxoApp' not in config['loggers']:
             error_msg = (
                 f"\n{'=' * 60}\n"
                 f"CRITICAL CONFIGURATION ERROR\n"
@@ -472,7 +472,7 @@ class TxoLogger:
             # Update all file handlers with dynamic path
             if 'handlers' in config:
                 for handler_name, handler_config in config['handlers'].items():
-                    if handler_config.get('class', '').endswith('FileHandler'):
+                    if handler_config['class'].endswith('FileHandler'):  # Hard-fail if missing
                         handler_config['filename'] = log_path
                         if os.getenv('DEBUG_LOGGING'):
                             print(f"[DEBUG] Set {handler_name} path to {log_path}", file=sys.stderr)

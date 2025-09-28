@@ -13,6 +13,7 @@ Provides thread-safe parallel processing with:
 import time
 import threading
 import concurrent.futures
+from tqdm import tqdm
 from typing import List, Any, Callable, Optional, Dict, Tuple, TypeVar, Generic
 from dataclasses import dataclass, field
 from functools import wraps
@@ -92,13 +93,9 @@ class ProgressTracker:
 
     def _init_progress_bar(self):
         """Initialize progress bar with lazy import."""
-        try:
-            from tqdm import tqdm
-            self._pbar = tqdm(total=self.total, desc=self.desc,
-                              unit="items", dynamic_ncols=True)
-        except ImportError:
-            logger.debug("tqdm not installed. Install with: pip install tqdm")
-            self.show_progress = False
+        # Hard-fail import - tqdm required for progress tracking
+        self._pbar = tqdm(total=self.total, desc=self.desc,
+                          unit="items", dynamic_ncols=True)
 
     def update(self, n: int = 1):
         """Update progress by n items."""

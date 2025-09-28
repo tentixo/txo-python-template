@@ -9,10 +9,11 @@ Handles configuration and secrets with:
 - Memory-efficient caching
 """
 import jsonschema
-import sys
 import threading
 from typing import Dict, Any, Optional
 from weakref import WeakValueDictionary
+
+from utils.exceptions import ConfigurationError, ValidationError, ErrorContext
 
 from utils.logger import setup_logger
 from utils.load_n_save import TxoDataHandler
@@ -138,7 +139,14 @@ class ConfigLoader:
         except FileNotFoundError as e:
             logger.error(f"❌ CRITICAL: Schema file not found: {schema_filename}")
             logger.error(f"Script cannot continue without schema validation: {e}")
-            sys.exit(1)
+            raise ConfigurationError(
+                f"Schema file not found: {schema_filename}",
+                context=ErrorContext(
+                    operation="schema_validation",
+                    resource=schema_filename,
+                    details={"org_id": self.org_id, "env_type": self.env_type}
+                )
+            ) from e
 
         # Perform validation
         try:
@@ -155,11 +163,29 @@ class ConfigLoader:
             )
             logger.error(f"Schema file: {schema_filename}")
             logger.error("Script cannot continue with invalid configuration.")
-            sys.exit(1)
+            raise ValidationError(
+                f"Schema validation failed at '{error_path}': {e.message}",
+                context=ErrorContext(
+                    operation="schema_validation",
+                    resource=f"{self.org_id}-{self.env_type}-config.json",
+                    details={
+                        "schema_file": schema_filename,
+                        "error_path": error_path,
+                        "validation_message": e.message
+                    }
+                )
+            ) from e
 
         except Exception as e:
             logger.error(f"❌ CRITICAL: Unexpected error during schema validation: {e}")
-            sys.exit(1)
+            raise ConfigurationError(
+                f"Unexpected error during schema validation: {e}",
+                context=ErrorContext(
+                    operation="schema_validation",
+                    resource=f"{self.org_id}-{self.env_type}-config.json",
+                    details={"schema_file": schema_filename}
+                )
+            ) from e
 
     def load_config(self, validate: bool = True,
                     include_secrets: bool = True,

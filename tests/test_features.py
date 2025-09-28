@@ -246,10 +246,10 @@ def test_api_factory(config: Dict[str, Any]) -> None:
         # Clean up
         api.close()
 
-    except KeyError as e:
-        logger.error(f"❌ Missing required config: {e}")
+    except KeyError as config_error:
+        logger.error(f"❌ Missing required config: {config_error}")
         raise HelpfulError(
-            what_went_wrong=f"Configuration missing required key: {e}",
+            what_went_wrong=f"Configuration missing required key: {config_error}",
             how_to_fix="Ensure your config has all required sections",
             example="Check script-behavior section with nested structure"
         )
@@ -260,8 +260,8 @@ def test_api_factory(config: Dict[str, Any]) -> None:
             api = manager.get_rest_api(require_auth=has_token)
             logger.info("✅ API created with context manager")
             # API will be closed automatically
-    except Exception as e:
-        logger.error(f"❌ Context manager failed: {e}")
+    except Exception as context_error:
+        logger.error(f"❌ Context manager failed: {context_error}")
 
     print()
 
@@ -290,11 +290,11 @@ def test_error_context(config: Dict[str, Any]) -> None:
             "Test error with context",
             context=context
         )
-    except ApiOperationError as e:
-        logger.info(f"Error with context: {e}")
-        if hasattr(e, 'context') and e.context:
-            logger.info(f"  Operation: {e.context.operation}")
-            logger.info(f"  Resource: {e.context.resource}")
+    except ApiOperationError as api_error:
+        logger.info(f"Error with context: {api_error}")
+        if hasattr(api_error, 'context') and api_error.context:
+            logger.info(f"  Operation: {api_error.context.operation}")
+            logger.info(f"  Resource: {api_error.context.resource}")
             logger.info("✅ ErrorContext working correctly")
         else:
             logger.error("❌ ErrorContext not attached")
@@ -306,9 +306,9 @@ def test_error_context(config: Dict[str, Any]) -> None:
             how_to_fix="No action needed - this is intentional",
             example="This demonstrates the helpful error format"
         )
-    except HelpfulError as e:
+    except HelpfulError as helpful_error:
         logger.info("HelpfulError format:")
-        print(str(e))
+        print(str(helpful_error))
         logger.info("✅ HelpfulError pattern working")
 
     print()
@@ -350,10 +350,10 @@ def test_github_api(config: Dict[str, Any]) -> None:
 
         api.close()
 
-    except ApiOperationError as e:
-        logger.error(f"❌ API call failed: {e}")
-    except Exception as e:
-        logger.error(f"❌ Unexpected error: {e}")
+    except ApiOperationError as api_error:
+        logger.error(f"❌ API call failed: {api_error}")
+    except Exception as unexpected_error:
+        logger.error(f"❌ Unexpected error: {unexpected_error}")
 
     print()
 

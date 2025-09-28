@@ -284,6 +284,27 @@ def get_project_root() -> Path:
     return ProjectPaths.init().root
 
 
+def setup_import_path() -> None:
+    """
+    Setup Python import path for scripts running from subdirectories.
+
+    Automatically adds project root to sys.path if not already present.
+    Safe to call multiple times.
+
+    Usage:
+        > # At top of script in src/ or other subdirectory
+        > from utils.path_helpers import setup_import_path
+        > setup_import_path()
+    """
+    import sys
+
+    project_root = get_project_root()
+    project_root_str = str(project_root)
+
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
+
+
 def cleanup_old_files(category: CategoryType, days: int = 30,
                       pattern: str = "*", dry_run: bool = False) -> List[Path]:
     """

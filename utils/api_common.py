@@ -137,8 +137,8 @@ def apply_jitter(delay: float, jitter_config: Optional[Dict[str, Any]] = None) -
     if not jitter_config:
         jitter_config = {"min-factor": 0.8, "max-factor": 1.2}
 
-    min_factor = jitter_config.get("min-factor", 0.8)
-    max_factor = jitter_config.get("max-factor", 1.2)
+    min_factor = jitter_config["min-factor"]  # Hard-fail if missing
+    max_factor = jitter_config["max-factor"]  # Hard-fail if missing
 
     # Apply random jitter within the factor range
     jitter_factor = random.uniform(min_factor, max_factor)
