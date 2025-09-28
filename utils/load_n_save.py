@@ -14,18 +14,19 @@ Provides efficient file I/O with:
 import json
 import gzip
 import threading
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, List, TYPE_CHECKING, Literal
+from typing import Union, Dict, Any, Optional, List, Literal
 
 from utils.logger import setup_logger
 from utils.path_helpers import CategoryType, get_path, format_size
 from utils.exceptions import FileOperationError, ValidationError
 
-# Type checking imports (not loaded at runtime)
-if TYPE_CHECKING:
-    import pandas as pd
-    import yaml
+# Hard-fail imports - TXO requires properly configured environment
+import pandas as pd
+import yaml
+import openpyxl  # Used by pandas for Excel operations (engine='openpyxl')
 
 logger = setup_logger()
 
@@ -59,9 +60,8 @@ class TxoDataHandler:
     - Comprehensive error handling with fail-fast approach
     """
 
-    # Class-level module cache with thread safety
-    _modules: Dict[str, Any] = {}
-    _import_lock = threading.Lock()
+    # Thread safety for file operations
+    _file_lock = threading.Lock()
 
     # Configuration constants
     DEFAULT_ENCODING = 'utf-8'
@@ -69,6 +69,61 @@ class TxoDataHandler:
     DEFAULT_COMPRESSION_LEVEL = 9
     DEFAULT_CSV_DELIMITER = ','
     DEFAULT_SHEET_NAME = 'Sheet1'
+
+    @staticmethod
+    def get_utc_timestamp() -> str:
+        """
+        Get current UTC timestamp in TXO standard format.
+
+        Returns:
+            Timestamp string in format: 2025-01-25T143045Z
+
+        Example:
+            > TxoDataHandler.get_utc_timestamp()
+            '2025-01-25T143045Z'
+        """
+        utc_now = datetime.now(timezone.utc)
+        return utc_now.strftime("%Y-%m-%dT%H%M%SZ")
+
+    @staticmethod
+    def save_with_timestamp(data: Any, directory: CategoryType, filename: str,
+                           add_timestamp: bool = False, **kwargs) -> Path:
+        """
+        Save file with optional UTC timestamp suffix.
+
+        Args:
+            data: Data to save
+            directory: Target directory category
+            filename: Base filename
+            add_timestamp: Whether to add UTC timestamp (default: False)
+            **kwargs: Additional arguments passed to save method
+
+        Returns:
+            Path to saved file
+
+        Example:
+            > # Without timestamp
+            > path = data_handler.save_with_timestamp(data, Dir.OUTPUT, "report.json")
+            > # Saves as: report.json
+
+            > # With timestamp
+            > path = data_handler.save_with_timestamp(data, Dir.OUTPUT, "report.json", add_timestamp=True)
+            > # Saves as: report_2025-01-25T143045Z.json
+        """
+        if add_timestamp:
+            timestamp = TxoDataHandler.get_utc_timestamp()
+
+            # Insert timestamp before file extension
+            if '.' in filename:
+                name_parts = filename.rsplit('.', 1)
+                timestamped_filename = f"{name_parts[0]}_{timestamp}.{name_parts[1]}"
+            else:
+                timestamped_filename = f"{filename}_{timestamp}"
+
+            logger.debug(f"Adding UTC timestamp to filename: {filename} -> {timestamped_filename}")
+            filename = timestamped_filename
+
+        return TxoDataHandler.save(data, directory, filename, **kwargs)
 
     # Format detection mappings
     FORMAT_EXTENSIONS = {
@@ -81,60 +136,6 @@ class TxoDataHandler:
         '.gz': 'gzip', '.rapidstart': 'gzip',
         '.bin': 'binary', '.dat': 'binary', '.pkl': 'binary'
     }
-
-    # ==================== Module Management ====================
-
-    @classmethod
-    def _lazy_import(cls, module_name: str) -> Any:
-        """
-        Thread-safe lazy import of modules.
-
-        Args:
-            module_name: Name of module to import ('pandas', 'yaml', 'openpyxl')
-
-        Returns:
-            Imported module
-
-        Raises:
-            ImportError: If module is not installed
-            ValueError: If module name is not recognized
-        """
-        if module_name not in cls._modules:
-            with cls._import_lock:
-                # Double-check pattern for thread safety
-                if module_name not in cls._modules:
-                    logger.debug(f"Lazy loading {module_name} module")
-                    try:
-                        if module_name == 'pandas':
-                            import pandas
-                            cls._modules['pandas'] = pandas
-                        elif module_name == 'yaml':
-                            import yaml
-                            cls._modules['yaml'] = yaml
-                        elif module_name == 'openpyxl':
-                            import openpyxl
-                            cls._modules['openpyxl'] = openpyxl
-                        else:
-                            raise ValueError(f"Unknown module for lazy loading: {module_name}")
-                    except ImportError as e:
-                        error_msg = f"{module_name} not installed. Install with: pip install {module_name}"
-                        logger.error(error_msg)
-                        raise ImportError(error_msg) from e
-
-        return cls._modules[module_name]
-
-    @classmethod
-    def clear_module_cache(cls) -> None:
-        """
-        Clear cached lazy-loaded modules to free memory.
-
-        Useful for long-running processes or memory-constrained environments.
-        """
-        with cls._import_lock:
-            count = len(cls._modules)
-            cls._modules.clear()
-            if count > 0:
-                logger.debug(f"Cleared {count} cached modules from memory")
 
     # ==================== Format Detection ====================
 
@@ -431,7 +432,7 @@ class TxoDataHandler:
             FileOperationError: If file cannot be read
             ValidationError: If YAML is invalid
         """
-        yaml = TxoDataHandler._lazy_import('yaml')
+        # Direct import - hard-fail if not available
         file_path = get_path(directory, filename, ensure_parent=False)
         logger.debug(f"Loading YAML from {file_path}")
 
@@ -483,7 +484,7 @@ class TxoDataHandler:
         Raises:
             FileOperationError: If file cannot be read
         """
-        pd = TxoDataHandler._lazy_import('pandas')
+        # Direct import - hard-fail if not available
 
         delimiter = delimiter or TxoDataHandler.DEFAULT_CSV_DELIMITER
         encoding = encoding or TxoDataHandler.DEFAULT_ENCODING
@@ -503,8 +504,9 @@ class TxoDataHandler:
 
             if chunksize:
                 logger.info(f"Loading CSV {file_path} in chunks of {chunksize}")
+                logger.info(f"Returned TextFileReader for chunked processing")
             else:
-                logger.info(f"Loaded CSV from {file_path} ({len(df):,} rows)")
+                logger.info(f"Loaded CSV from {file_path}")
 
             return df
 
@@ -545,8 +547,8 @@ class TxoDataHandler:
             FileOperationError: If file cannot be read
             ValidationError: If sheet doesn't exist
         """
-        pd = TxoDataHandler._lazy_import('pandas')
-        _ = TxoDataHandler._lazy_import('openpyxl')  # Ensure openpyxl is available
+        # Direct import - hard-fail if not available
+        # openpyxl available via direct import
 
         file_path = get_path(directory, filename, ensure_parent=False)
         logger.debug(f"Loading Excel from {file_path} (sheet: {sheet_name})")
@@ -814,7 +816,7 @@ class TxoDataHandler:
             ValidationError: If data cannot be serialized
             FileOperationError: If file cannot be written
         """
-        yaml = TxoDataHandler._lazy_import('yaml')
+        # Direct import - hard-fail if not available
         file_path = get_path(directory, filename)
 
         try:

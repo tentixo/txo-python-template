@@ -131,8 +131,8 @@ class SessionManager:
         session.headers.update(headers)
 
         retry_strategy = Retry(
-            total=retry_config.get("max-retries", 3),
-            backoff_factor=retry_config.get("backoff-factor", 1.0),
+            total=retry_config["max-retries"],  # Hard-fail if missing
+            backoff_factor=retry_config["backoff-factor"],  # Hard-fail if missing
             status_forcelist=[429, 500, 502, 503, 504],
             respect_retry_after_header=True,
             allowed_methods=["GET", "POST", "PUT", "PATCH", "DELETE"]
@@ -349,10 +349,10 @@ class TxoRestAPI:
             logger.warning(f"{context} 202 response missing Location header")
             return response.json() if response.content else {}
 
-        # Get polling interval from Retry-After or use default
+        # Get polling interval from Retry-After or use config (hard-fail)
         retry_after = int(response.headers.get('Retry-After',
-                                               self.timeouts.get('async-poll-interval', 5)))
-        max_wait = self.timeouts.get('async-max-wait', 300)
+                                               self.timeouts['async-poll-interval']))
+        max_wait = self.timeouts['async-max-wait']
 
         logger.info(f"{context} Async operation started, polling {location}")
 
@@ -415,9 +415,9 @@ class TxoRestAPI:
         # Apply rate limiting
         self._apply_rate_limit()
 
-        max_retries = self.timeouts.get("max-retries", 3)
-        backoff_factor = self.timeouts.get("backoff-factor", 2.0)
-        timeout = self.timeouts.get("rest-timeout-seconds", 60)
+        max_retries = self.timeouts["max-retries"]  # Hard-fail if missing
+        backoff_factor = self.timeouts["backoff-factor"]  # Hard-fail if missing
+        timeout = self.timeouts["rest-timeout-seconds"]  # Hard-fail if missing
 
         if 'timeout' not in kwargs:
             kwargs['timeout'] = timeout
@@ -433,7 +433,7 @@ class TxoRestAPI:
 
                 # UPDATE RATE LIMITS FROM HEADERS (ADD HERE)
                 if self.rate_limit_manager and response.headers:
-                    self.rate_limit_manager.update_from_headers(url, response.headers)
+                    self.rate_limit_manager.update_from_headers(url, dict(response.headers))
 
                 if response.ok or response.status_code == 202:
                     # Record success in circuit breaker
@@ -453,7 +453,7 @@ class TxoRestAPI:
                 # Check if we should retry
                 if response.status_code in [429, 500, 502, 503, 504]:
                     if response.status_code == 429 and self.rate_limit_manager:
-                        self.rate_limit_manager.update_from_headers(url, response.headers)
+                        self.rate_limit_manager.update_from_headers(url, dict(response.headers))
                     last_error = f"HTTP {response.status_code}"
                     if attempt < max_retries - 1:
                         retry_after = response.headers.get('Retry-After')
@@ -532,7 +532,7 @@ class TxoRestAPI:
         """
         if page_size is None:
             batch_config = batch_config or {}
-            page_size = batch_config.get("read-batch-size", 20)
+            page_size = batch_config["read-batch-size"]  # Hard-fail if missing
 
         page_size = min(page_size, 1000)
 

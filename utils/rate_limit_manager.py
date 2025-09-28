@@ -1,10 +1,13 @@
 # utils/rate_limit_manager.py
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from dataclasses import dataclass
 import threading
 from urllib.parse import urlparse
 
 from utils.api_common import RateLimiter
+from utils.logger import setup_logger
+
+logger = setup_logger()
 
 
 @dataclass

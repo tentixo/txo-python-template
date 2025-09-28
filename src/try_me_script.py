@@ -13,24 +13,22 @@ Example:
 
 What it does:
     1. Fetches top Python repositories from GitHub
-    2. Saves results to output/demo-test-github_repos_{UTC}.json
-    3. Demonstrates v3.0 patterns: Dir constants, smart save(), no token needed
+    2. Saves results to output/demo-test-github_repos_2025-01-25T143045Z.json
+    3. Demonstrates v3.1 patterns: Dir constants, UTC timestamps, no token needed
 
 Perfect for:
     - Testing your development environment
-    - Learning TXO v3.0 patterns
+    - Learning TXO v3.1 patterns
     - Validating the template setup
 """
 
-from datetime import datetime, timezone
 from typing import Dict, Any, List
-import time
-import requests
 
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.load_n_save import TxoDataHandler
 from utils.path_helpers import Dir  # v3.0: Type-safe directory constants
+from utils.api_factory import create_rest_api
 from utils.exceptions import ApiOperationError, HelpfulError
 
 logger = setup_logger()
@@ -50,12 +48,8 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     Raises:
         ApiOperationError: If GitHub API request fails
     """
-    # Create session for public API
-    session = requests.Session()
-    session.headers.update({
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": f"{config['_org_id']}-{config['_env_type']}-script"
-    })
+    # Create REST API client using TXO framework (no auth needed for GitHub public API)
+    api = create_rest_api(config, require_auth=False)
 
     # GitHub search API endpoint
     url = "https://api.github.com/search/repositories"
@@ -63,47 +57,14 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     logger.info("Fetching top Python repositories from GitHub...")
 
     try:
-        # Get configured delay (hard fail if script-behavior exists but delay is missing)
-        try:
-            delay = config["script-behavior"]["api-delay-seconds"]
-        except KeyError:
-            delay = 1  # Default if entire script-behavior section is missing
+        # Use TXO REST API framework (handles timeouts, rate limiting, retries automatically)
+        data = api.get(url, params={
+            "q": "language:python stars:>1000",
+            "sort": "stars",
+            "order": "desc",
+            "per_page": 10
+        })
 
-        if delay > 0:
-            logger.debug(f"Waiting {delay}s before API call")
-            time.sleep(delay)
-
-        # Get timeout (hard fail if global exists but timeout is missing)
-        try:
-            timeout = config["global"]["timeout-seconds"]
-        except KeyError:
-            timeout = 30  # Default if not in global section
-
-        # Make the API request
-        response = session.get(
-            url,
-            params={
-                "q": "language:python stars:>1000",
-                "sort": "stars",
-                "order": "desc",
-                "per_page": 10
-            },
-            timeout=timeout
-        )
-
-        # Check for rate limiting
-        if response.status_code == 403:
-            remaining = response.headers.get('X-RateLimit-Remaining', 'unknown')
-            reset_time = response.headers.get('X-RateLimit-Reset', 'unknown')
-
-            raise ApiOperationError(
-                f"GitHub rate limit hit! Remaining: {remaining}, "
-                f"Resets at: {reset_time}"
-            )
-
-        response.raise_for_status()
-
-        data = response.json()
         repos = data["items"]  # Hard fail if 'items' key missing
 
         logger.info(f"Successfully fetched {len(repos)} repositories")
@@ -131,11 +92,9 @@ def fetch_github_repos(config: Dict[str, Any]) -> List[Dict[str, Any]]:
     except KeyError as e:
         logger.error(f"GitHub API response missing expected field: {e}")
         raise ApiOperationError(f"Invalid GitHub API response structure: missing {e}")
-    except requests.RequestException as e:
-        logger.error(f"Request failed: {e}")
+    except Exception as e:
+        logger.error(f"API request failed: {e}")
         raise ApiOperationError(f"GitHub API request failed: {e}")
-    finally:
-        session.close()
 
 
 def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
@@ -154,20 +113,18 @@ def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
         return
 
     # Build output filename with TXO pattern
-    utc_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
     org_id = config["_org_id"]  # Hard fail if missing
     env_type = config["_env_type"]  # Hard fail if missing
 
-    filename = f"{org_id}-{env_type}-github_repos_{utc_timestamp}.json"
+    filename = f"{org_id}-{env_type}-github_repos.json"
 
     try:
-        # v3.0: Use Dir.OUTPUT constant instead of string literal
-        output_path = data_handler.save(repos, Dir.OUTPUT, filename, indent=2)
+        # v3.1: Use save_with_timestamp for UTC timestamp in TXO standard format
+        output_path = data_handler.save_with_timestamp(
+            repos, Dir.OUTPUT, filename,
+            add_timestamp=True
+        )
         logger.info(f"✅ Saved {len(repos)} repositories to: {output_path}")
-
-        # Log file size for verification
-        file_size = output_path.stat().st_size
-        logger.debug(f"Output file size: {file_size:,} bytes")
 
     except Exception as e:
         logger.error(f"Save operation failed: {e}")
@@ -178,19 +135,17 @@ def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
         )
 
 
-def display_summary(repos: List[Dict[str, Any]], elapsed_time: float) -> None:
+def display_summary(repos: List[Dict[str, Any]]) -> None:
     """
     Display a summary of fetched repositories.
 
     Args:
         repos: List of repository data
-        elapsed_time: Time taken for API call
     """
     logger.info("=" * 60)
     logger.info("GitHub API Test - Summary")
     logger.info("=" * 60)
     logger.info(f"Total repositories fetched: {len(repos)}")
-    logger.info(f"API call duration: {elapsed_time:.2f} seconds")
     logger.info("")
     logger.info("Top 3 Python repositories by stars:")
 
@@ -224,16 +179,13 @@ def main():
         logger.info("Using default settings (no script-behavior config found)")
 
     try:
-        # Time the API call
-        start_time = time.time()
         repos = fetch_github_repos(config)
-        elapsed = time.time() - start_time
 
-        # Save the results using v3.0 patterns
+        # Save the results using v3.1 patterns
         save_results(config, repos)
 
         # Display summary
-        display_summary(repos, elapsed)
+        display_summary(repos)
 
         logger.info(f"✅ Try-Me script completed successfully for {org_id}-{env_type}")
         logger.info("✅ TXO Template v3.0 is working correctly!")
@@ -270,6 +222,7 @@ if __name__ == "__main__":
     except HelpfulError:
         # HelpfulError message already logged
         sys.exit(1)
-    except Exception:
-        # Unexpected errors already logged with traceback
+    except Exception as unexpected_error:
+        # Broad exception acceptable for main script catch-all
+        logger.error(f"❌ Unexpected error: {unexpected_error}")
         sys.exit(1)

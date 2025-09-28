@@ -1,428 +1,365 @@
-# txo-python-template
+# TXO Python Template v3.1
+
+> **Problem Solved**: Consistent, secure, production-ready Python automation across multiple organizations and environments
+> **Get Running**: 5 minutes from clone to first script execution in PyCharm
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
-![Version](https://img.shields.io/badge/version-3.0.0-green)
+![Version](https://img.shields.io/badge/version-3.1-green)
 ![MIT License](https://img.shields.io/badge/license-MIT-green)
 ![PyCharm](https://img.shields.io/badge/IDE-PyCharm-green)
 
-**Tentixo's Python Template v3.0** - Production-ready framework for Python automation with mandatory configuration, type-safe path management, and enterprise-grade security features.
+## What This Solves
 
-> **⚠️ BREAKING CHANGES in v3.0**: See [Migration Guide](#migration-from-v2x) for upgrade instructions.
+**Before TXO Template**:
+- ❌ Scripts break across environments (dev vs prod)
+- ❌ Secrets accidentally committed to git
+- ❌ Inconsistent logging makes debugging impossible
+- ❌ Manual configuration for every new project
 
-## What's New in v3.0.0
+**After TXO Template**:
+- ✅ Consistent behavior across all environments
+- ✅ Mandatory security patterns (never leak tokens)
+- ✅ Structured logging with AI-friendly debug files
+- ✅ Type-safe paths and configuration management
 
-### 🎯 Major Improvements
-- **Type-Safe Path Management** - Use `Dir.CONFIG` instead of `'config'` strings
-- **Token Optional by Default** - Most scripts don't need authentication
-- **Smart I/O** - Single `save()` method auto-detects file types
-- **Mandatory Security** - No defaults, configs required for all scripts
-- **Thread-Safe Operations** - Lazy loading with proper locking
-- **Nested Config Structure** - Cleaner organization of settings
+---
 
-### 🔒 Security First
-All scripts REQUIRE three configuration files (will exit if missing):
-1. `{org}-{env}-config.json` - Main configuration
-2. `logging-config.json` - Logging setup
-3. `log-redaction-patterns.json` - Token redaction patterns
+## Quick Start in PyCharm (5 Minutes)
 
-## Quick Start - 5 Minutes to Success
+### 1. Clone and Open in PyCharm (1 minute)
+1. **Clone**: `git clone https://github.com/tentixo/txo-python-template.git`
+2. **Open in PyCharm**: File → Open → Select the cloned directory
+3. **Trust the project** when PyCharm asks
+4. **Let PyCharm install dependencies** automatically (it will detect `pyproject.toml`)
 
-### Step 1: Clone and Setup
+### 2. Setup Configuration (2 minutes)
+Right-click in PyCharm Project Explorer:
 
-```bash
-# Clone the template
-git clone https://github.com/tentixo/txo-python-template.git
-cd txo-python-template
-
-# Install dependencies (PyCharm will do this automatically)
-pip install uv
-uv pip install -r pyproject.toml
+```
+config/
+├── org-env-config_example.json           → Copy → Rename to: demo-test-config.json
+└── org-env-config-secrets_example.json   → Copy → Rename to: demo-test-config-secrets.json
 ```
 
-### Step 2: Copy Required Config Files
-```bash
-# Copy example config for your org/env
-cp config/templates/org-env-config_example.json config/myorg-test-config.json  # Note: myorg and test should be replaced with your org and env
-cp config/templates/org-env-config-secrets_example.json config/myorg-test-config-secrets.json # Note: myorg and test should be replaced with your org and env
+**PyCharm Steps**:
+1. Right-click `org-env-config_example.json` → **Copy**
+2. Right-click in `config/` folder → **Paste**
+3. Rename to `demo-test-config.json`
+4. Repeat for all 4 example files
+
+> 💡 **Example files work as-is** - No editing needed for demo!
+
+### 3. Run Your First Script (2 minutes)
+
+1. **Open** `src/try_me_script.py` in PyCharm
+2. **Right-click** in the editor → **Run 'try_me_script'**
+3. **It will fail** - this is expected! PyCharm will ask for run configuration
+4. **Edit Run Configuration**:
+   - **Parameters**: `demo test`
+   - **Working directory**: (should be project root)
+   - **Click OK**
+5. **Run again** → Should see success output:
+
+```
+[Test/Demo/LocalProcessing] Processing started
+✅ All 5 operations successful: 3 created, 2 updated
 ```
 
-### Step 3: Run the Try-Me Script
+---
 
-```bash
-# Test everything works with our simple demo
-python examples/try_me_script.py demo test
+## PyCharm Project Structure
 
-# This will:
-# 1. Validate all config files exist
-# 2. Fetch data from GitHub's public API (no auth needed)
-# 3. Save results using smart save()
-# 4. Demonstrate all v3.0 patterns
+```
+your-txo-project/
+├── config/              # Configuration files (copy examples here)
+│   ├── org-env-config_example.json          # → Copy to {org}-{env}-config.json
+│   ├── org-env-config-secrets_example.json  # → Copy to {org}-{env}-config-secrets.json
+│   ├── logging-config_example.json          # → Copy to logging-config.json
+│   └── log-redaction-patterns_example.json  # → Copy to log-redaction-patterns.json
+├── data/                # Put input files here (CSV, JSON, etc.)
+├── output/              # Generated reports appear here
+├── logs/                # Debug files for AI troubleshooting
+├── src/                 # Your scripts go here
+│   └── try_me_script.py # Working example script
+├── tests/               # Test scripts
+├── utils/               # 🚨 DO NOT MODIFY - TXO framework code
+└── ai/decided/          # Documentation and ADRs
 ```
 
-## Core v3.0 Patterns
+---
 
-### 1. Type-Safe Path Management (NEW)
+## Creating Your Own Scripts in PyCharm
+
+### Method 1: Copy and Modify (Recommended)
+1. **Copy** `src/try_me_script.py` in PyCharm
+2. **Rename** to your script name
+3. **Modify** the business logic inside `main()`
+4. **Set run parameters**: `{your_org} {your_env}`
+
+### Method 2: Start from Template
 ```python
-from utils.path_helpers import Dir
-
-# ALWAYS use Dir constants
-config = data_handler.load_json(Dir.CONFIG, 'settings.json')
-data_handler.save(results, Dir.OUTPUT, 'results.json')
-
-# NEVER use strings
-# config = data_handler.load_json('config', 'settings.json')  # NO!
-```
-
-Available directories:
-- `Dir.CONFIG` - Configuration files
-- `Dir.DATA` - Input data files
-- `Dir.OUTPUT` - Generated output
-- `Dir.LOGS` - Log files
-- `Dir.TMP` - Temporary files
-- `Dir.SCHEMAS` - JSON schemas
-- Plus: FILES, GENERATED_PAYLOADS, PAYLOADS, WSDL, AI
-
-### 2. Token is Optional (CHANGED)
-```python
-# Most scripts DON'T need authentication
-config = parse_args_and_load_config(
-    "My data processing script"
-    # require_token=False is the DEFAULT
-)
-
-# Only API scripts need tokens
-config = parse_args_and_load_config(
-    "Business Central API sync",
-    require_token=True  # Must be explicit
-)
-```
-
-### 3. Smart Save/Load (NEW)
-```python
-# One method for everything - auto-detects from extension
-data_handler.save(dict_data, Dir.OUTPUT, "data.json")      # JSON
-data_handler.save(dataframe, Dir.OUTPUT, "report.xlsx")    # Excel
-data_handler.save(dataframe, Dir.OUTPUT, "report.csv")     # CSV
-data_handler.save("text", Dir.OUTPUT, "readme.txt")        # Text
-data_handler.save(config, Dir.CONFIG, "settings.yaml")     # YAML
-
-# Load also auto-detects
-data = data_handler.load(Dir.DATA, "input.csv")  # Returns DataFrame
-```
-
-### 4. Mandatory Configuration (ENHANCED)
-```python
-# Script will exit(1) if ANY config file is missing
-logger = setup_logger()  # Exits if logging configs missing
-
-# Configuration MUST exist - no defaults
-config = parse_args_and_load_config('Script')  # Exits if config missing
-
-# Hard fail on missing keys - no soft defaults
-api_url = config['global']['api-base-url']  # KeyError is good!
-```
-
-### 5. Nested Config Structure (CHANGED)
-```json
-{
-  "script-behavior": {
-    "rate-limiting": {
-      "enabled": true,
-      "calls-per-second": 10,
-      "burst-size": 1
-    },
-    "circuit-breaker": {
-      "enabled": false,
-      "failure-threshold": 5,
-      "timeout-seconds": 60
-    }
-  }
-}
-```
-
-## Project Structure
-
-```
-txo-python-template/
-├── ai/                     # Files to and from ai
-├── config/                 
-│   ├── templates/          # Example configs to copy
-│   ├── log-redaction-patterns.json # MANDATORY
-│   ├── logging-config.json         # MANDATORY
-│   ├── {org}-{env}-config-secrets.json
-│   └── {org}-{env}-config.json
-├── data/                   # Input data files
-├── examples/               # Example scripts (NEW location)
-│   └── try_me_script.py    # ⭐ START HERE
-├── files/                  # Files from elsewhere used as-is
-├── generated_payloads/     # For generated payloads to validate before sending
-├── logs/                   # Log files (gitignored)
-├── output/                 # Generated general files
-├── payloads/               # Ready to send payloads, moved here from generated_payloads/
-├── schemas/
-│   └── org-env-config-schema.json  # Validates all configs
-├── src/                    # Source code: Your main scripts
-├── tests/                  # Test scripts (NEW location)
-│   └── test_features.py    # Feature validation
-├── tmp/                    # Temp files (not checked in)
-├── utils/                  # Helper files (DON'T MODIFY)
-│   ├── api_common.py       # Rate limiting, circuit breaker
-│   ├── api_factory.py      # API client creation
-│   ├── config_loader.py    # Config validation
-│   ├── exceptions.py       # HelpfulError pattern
-│   ├── load_n_save.py      # Smart I/O with auto-detection
-│   ├── logger.py           # Mandatory security logging
-│   ├── path_helpers.py     # Dir constants (NEW)
-│   ├── rest_api_helpers.py # REST client
-│   └── script_runner.py    # Script initialization
-└── wsdl/                   # WSDL files
-```
-
-## Configuration Files
-
-### Required Files (Script exits if missing)
-
-#### 1. Main Config: `config/{org}-{env}-config.json`
-```json
-{
-  "global": {
-    "api-base-url": "https://api.example.com",
-    "api-version": "v2",
-    "tenant-id": "",  // Empty for non-API scripts
-    "client-id": "",  // Empty for non-API scripts
-    "oauth-scope": "" // Empty for non-API scripts
-  },
-  "script-behavior": {
-    "api-delay-seconds": 1,
-    "api-timeouts": {
-      "rest-timeout-seconds": 60,
-      "async-max-wait": 300,
-      "async-poll-interval": 5
-    },
-    "retry-strategy": {
-      "max-retries": 5,
-      "backoff-factor": 3.0
-    },
-    "jitter": {
-      "min-factor": 0.8,
-      "max-factor": 1.2
-    },
-    "rate-limiting": {
-      "enabled": false,
-      "calls-per-second": 10,
-      "burst-size": 1
-    },
-    "circuit-breaker": {
-      "enabled": false,
-      "failure-threshold": 5,
-      "timeout-seconds": 60
-    },
-    "batch-handling": {
-      "read-batch-size": 20,
-      "update-batch-size": 10
-    }
-  }
-}
-```
-
-#### 2. Logging: `config/logging-config.json`
-Controls console (INFO+) and file (DEBUG+) logging. MUST exist.
-
-#### 3. Redaction: `config/log-redaction-patterns.json`
-Defines patterns to redact from logs. MUST exist for security.
-
-### Optional: Secrets File (gitignored)
-`config/{org}-{env}-config-secrets.json`:
-```json
-{
-  "client-secret": "oauth-secret",
-  "az-token": "Bearer eyJ...",
-  "api-key": "sk-..."
-}
-```
-Injected with underscore: `config['_client_secret']`, `config['_az_token']`
-
-## Standard Script Template
-
-### Local Processing Script (No Auth)
-```python
-# examples/process_data.py
-"""Process local data files - no authentication needed."""
-
-from typing import Dict, Any
-from datetime import datetime, timezone
-
+# Your new script: src/my_script.py
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
 from utils.load_n_save import TxoDataHandler
 from utils.path_helpers import Dir
-from utils.exceptions import HelpfulError
 
 logger = setup_logger()
 data_handler = TxoDataHandler()
 
 def main():
-    # No token needed (the default)
-    config = parse_args_and_load_config("Process local data")
-    
-    org_id = config['_org_id']
-    env_type = config['_env_type']
-    logger.info(f"Starting for {org_id}-{env_type}")
-    
-    # Load data
-    data = data_handler.load(Dir.DATA, "input.csv")
-    
-    # Process...
-    
-    # Save with timestamp
-    utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%MZ")
-    filename = f"{org_id}-{env_type}-results_{utc}.xlsx"
-    data_handler.save(data, Dir.OUTPUT, filename)
+    # Auto-loads config, no token needed for local processing
+    config = parse_args_and_load_config("My awesome script")
+
+    # Type-safe file operations
+    input_data = data_handler.load(Dir.DATA, "input.csv")
+
+    # Your business logic here
+    processed_data = process_my_data(input_data)
+
+    # Auto-detects file type from extension
+    data_handler.save(processed_data, Dir.OUTPUT, "results.xlsx")
+
+    logger.info("✅ Processing complete!")
+
+def process_my_data(data):
+    # Your logic here
+    return data
 
 if __name__ == "__main__":
     main()
 ```
 
-### API Integration Script (Needs Auth)
-```python
-# examples/sync_api.py
-"""Sync with external API - requires authentication."""
+### PyCharm Run Configuration
+- **Parameters**: `myorg prod` (always org_id env_type)
+- **Working directory**: Project root
+- **Environment variables**: Add `DEBUG_LOGGING=1` for verbose output
 
+---
+
+## Common Usage Patterns
+
+### Local Data Processing (Most Common)
+```python
+def main():
+    # No authentication needed
+    config = parse_args_and_load_config("Process customer data")
+
+    # Load from data/ directory
+    customers = data_handler.load(Dir.DATA, "customers.csv")
+    processed = transform_customers(customers)
+
+    # Save to output/ directory
+    data_handler.save(processed, Dir.OUTPUT, "processed-customers.xlsx")
+```
+
+**PyCharm Setup**: Parameters = `myorg prod`
+
+### API Integration Scripts
+```python
+from utils.api_factory import create_rest_api
+
+def main():
+    # Explicitly request authentication
+    config = parse_args_and_load_config("Sync with API", require_token=True)
+
+    # Get configured API client (rate limiting, retries built-in)
+    api = create_rest_api(config)
+    customers = api.get("/customers")
+```
+
+**PyCharm Setup**:
+- Parameters = `myorg prod`
+- Ensure OAuth configured in config file
+
+---
+
+## Configuration in PyCharm
+
+### Required Files (Script exits if missing)
+All config files live in `config/` directory:
+
+```json
+// demo-test-config.json (Main settings)
+{
+  "global": {
+    "api-base-url": "https://api.example.com",
+    "timeout-seconds": 30
+  },
+  "script-behavior": {
+    "rate-limiting": {"enabled": false, "calls-per-second": 10}
+  }
+}
+```
+
+```json
+// demo-test-config-secrets.json (Gitignored automatically)
+{
+  "client-secret": "your-actual-secret",
+  "api-token": "your-actual-token"
+}
+```
+
+### PyCharm JSON Editing
+- **Syntax highlighting** - PyCharm validates JSON automatically
+- **Schema validation** - Uses `schemas/org-env-config-schema.json`
+- **Auto-completion** - PyCharm suggests valid keys
+- **Error highlighting** - Red underlines for invalid JSON
+
+---
+
+## Debugging in PyCharm
+
+### Using PyCharm Debugger
+1. **Set breakpoints** in your script
+2. **Right-click** → **Debug 'script_name'**
+3. **Step through** TXO framework calls
+4. **Inspect variables** - config, data_handler, logger
+
+### Log File Analysis
+- **Logs appear** in `logs/` directory
+- **Open in PyCharm** for syntax highlighting
+- **Search/filter** using PyCharm's find functionality
+- **Upload to AI** for debugging assistance
+
+### Common Debug Scenarios in PyCharm
+```python
+# Set breakpoint here to inspect config structure
+config = parse_args_and_load_config("Debug script")
+print(f"Loaded config keys: {list(config.keys())}")  # Breakpoint here
+
+# Set breakpoint to see what data was loaded
+data = data_handler.load(Dir.DATA, "input.csv")
+print(f"Data shape: {data.shape}")  # Breakpoint here
+```
+
+---
+
+## Troubleshooting in PyCharm
+
+| Problem | PyCharm Solution |
+|---------|------------------|
+| `Config file not found` | Copy examples from `config/` in Project Explorer |
+| `Invalid category 'output'` | Use `Dir.OUTPUT` - PyCharm autocompletes Dir.* |
+| `Token required but not configured` | Add `require_token=False` or edit config JSON |
+| `Import error: cannot import Dir` | Check PyCharm Python interpreter settings |
+| Script won't run | Check Run Configuration → Parameters field |
+
+### PyCharm-Specific Tips
+- **Red underlines** = Import or syntax errors
+- **Yellow highlights** = Warnings or suggestions
+- **Ctrl+Click** on TXO functions to see source code
+- **File → Settings → Python Interpreter** to verify dependencies
+
+---
+
+## Project Templates and Patterns
+
+### PyCharm File Templates
+Create **File → Settings → Editor → File and Code Templates**:
+
+```python
+# TXO Script Template
 from utils.logger import setup_logger
 from utils.script_runner import parse_args_and_load_config
-from utils.api_factory import create_rest_api
+from utils.load_n_save import TxoDataHandler
 from utils.path_helpers import Dir
 
 logger = setup_logger()
+data_handler = TxoDataHandler()
 
 def main():
-    # Explicitly require token for API access
-    config = parse_args_and_load_config(
-        "API sync script",
-        require_token=True  # Required for API
-    )
-    
-    # Create API client (uses _token from config)
-    api = create_rest_api(config)
-    
-    # API operations...
+    config = parse_args_and_load_config("${SCRIPT_NAME}")
+
+    # TODO: Add your business logic here
+
+    logger.info("✅ ${SCRIPT_NAME} completed")
 
 if __name__ == "__main__":
     main()
 ```
 
-## Migration from v2.x
+### PyCharm Run Configuration Templates
+Save run configurations for common patterns:
+- **Local Processing**: Parameters = `demo test`
+- **Production**: Parameters = `myorg prod`
+- **Debug Mode**: Environment = `DEBUG_LOGGING=1`
 
-### Breaking Changes
+---
 
-1. **Path strings → Dir constants**
-   ```python
-   # Old (v2.x)
-   data_handler.load_json('config', 'settings.json')
-   
-   # New (v3.0)
-   data_handler.load_json(Dir.CONFIG, 'settings.json')
-   ```
+## Advanced PyCharm Integration
 
-2. **Token required → optional by default**
-   ```python
-   # Old (v2.x) - token required by default
-   config = parse_args_and_load_config("Script")
-   
-   # New (v3.0) - token optional by default
-   config = parse_args_and_load_config("Script")  # No token
-   config = parse_args_and_load_config("Script", require_token=True)  # With token
-   ```
+### Code Inspections
+PyCharm will highlight TXO pattern violations:
+- **String literals** instead of `Dir.*` constants
+- **Soft-fail** patterns like `config.get()`
+- **Print statements** instead of logger calls
 
-3. **Flat → nested config structure**
-   ```json
-   // Old (v2.x)
-   "enable-rate-limiting": true,
-   "rate-limit-per-second": 10
-   
-   // New (v3.0)
-   "rate-limiting": {
-     "enabled": true,
-     "calls-per-second": 10,
-     "burst-size": 1
-   }
-   ```
+### PyCharm Plugins Recommended
+- **JSON Schema** - Validates config files
+- **Python Security** - Detects security issues
+- **Requirements** - Manages dependencies
 
-4. **Scripts location**
-   - Move scripts from `src/` to `examples/` or `tests/`
+### Version Control in PyCharm
+PyCharm Git integration respects `.gitignore`:
+- ✅ **Config examples** are tracked
+- ❌ **Secrets files** auto-ignored (`*-secrets.*`)
+- ❌ **Generated files** ignored (`logs/`, `output/`)
 
-5. **Mandatory config files**
-   - Must have `logging-config.json`
-   - Must have `log-redaction-patterns.json`
-   - No defaults - script exits if missing
+---
 
-## Best Practices
+## When You Need More
 
-### ✅ DO
-- Use Dir constants for all paths
-- Let config access hard-fail (no `.get()` for required keys)
-- Use `save()` for all file types (auto-detection)
-- Include UTC timestamps in output filenames
-- Use HelpfulError for user-facing errors
-- Set `require_token=True` ONLY for API scripts
+- **Architecture decisions**: `ai/decided/txo-business-adr_v3.1.md`
+- **Python patterns**: `ai/decided/txo-technical-standards_v3.1.md`
+- **All available functions**: `ai/decided/utils-quick-reference_v3.1.md`
+- **Detailed setup**: `ai/decided/in-depth-readme_v3.1.md`
+- **AI development**: `ai/decided/ai-prompt-template_v3.1.md`
 
-### ❌ DON'T
-- Use string literals for paths (`'config'`, `'output'`)
-- Require tokens for local processing scripts
-- Use soft defaults for configuration
-- Use `print()` - always use logger
-- Build paths manually - use `get_path()`
+---
 
-## Common Commands
+## Migration from Previous Versions
 
-```bash
-# Run example script (no auth needed)
-python examples/try_me_script.py demo test
+### v3.0 → v3.1 (Minor Updates)
+- Configuration structure unchanged
+- New documentation format standards
+- Enhanced PyCharm integration
 
-# Run with custom org/env
-python examples/script.py mycompany prod
+### v2.x → v3.1 (Breaking Changes)
+```python
+# Update imports
+from utils.path_helpers import Dir  # NEW requirement
 
-# Test all features
-python tests/test_features.py demo test
+# Update path usage
+# OLD: data_handler.load_json('config', 'file.json')
+# NEW: data_handler.load_json(Dir.CONFIG, 'file.json')
 
-# Debug mode (if configured)
-DEBUG_LOGGING=1 python examples/script.py demo test
+# Update token requirement
+# OLD: config = parse_args_and_load_config("Script")  # Token required
+# NEW: config = parse_args_and_load_config("Script")  # Token optional
 ```
 
-## Troubleshooting
+**PyCharm Migration Help**:
+1. **Find/Replace** string literals with Dir constants
+2. **Code inspection** will highlight patterns to update
+3. **Refactor** tools can help with bulk updates
 
-### Config File Not Found
-```
-CRITICAL CONFIGURATION ERROR
-Configuration file not found!
-```
-**Solution**: Copy templates from `config/templates/`
+---
 
-### Token Required But Not Configured
-```
-❌ Problem: Token required but OAuth config incomplete
-✅ Solution: Either configure OAuth or use require_token=False
-```
+## Version History
 
-### Invalid Directory
-```
-ValueError: Invalid directory 'config'. Use Dir.* constants
-```
-**Solution**: Import and use `Dir.CONFIG` instead of `'config'`
+**Version:** v3.1 | **Last Updated:** 2025-01-25
 
-## Documentation
+### v3.1 (Current)
+- Enhanced PyCharm integration and workflow
+- Streamlined configuration with examples in config/
+- Moved scripts to src/ for better organization
 
-- **[Architecture Decisions](ai/decided/adr_v3.md)** - Why we built it this way
-- **[In-Depth Guide](in-depth-readme.md)** - Comprehensive documentation
-- **[Module Dependencies](module-dependency-diagram.md)** - Visual architecture
-- **AI Assistance** - Upload `ai/prompts/txo-xml-prompt-v3.0.xml` to Claude/GPT-4
+### v3.0
+- Type-safe path management with Dir constants
+- Token optional by default, mandatory configuration files
+- Enhanced security and structured logging patterns
 
-## Support
+---
 
-- **Issues**: [GitHub Issues](https://github.com/tentixo/txo-python-template/issues)
-- **Template Version**: v3.0.0
-- **Python Required**: 3.10+ (3.13+ recommended)
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details.
+**Version:** v3.1 | **Domain:** TXO Python Template | **Purpose:** Production-ready Python automation framework with PyCharm integration
