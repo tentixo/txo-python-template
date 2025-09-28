@@ -1,6 +1,7 @@
 # TXO Python Template v3.1
 
-> **Problem Solved**: Consistent, secure, production-ready Python automation across multiple organizations and environments
+> **Problem Solved**: Consistent, secure, production-ready Python automation across multiple organizations and
+> environments
 > **Get Running**: 5 minutes from clone to first script execution in PyCharm
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
@@ -11,12 +12,14 @@
 ## What This Solves
 
 **Before TXO Template**:
+
 - ❌ Scripts break across environments (dev vs prod)
 - ❌ Secrets accidentally committed to git
 - ❌ Inconsistent logging makes debugging impossible
 - ❌ Manual configuration for every new project
 
 **After TXO Template**:
+
 - ✅ Consistent behavior across all environments
 - ✅ Mandatory security patterns (never leak tokens)
 - ✅ Structured logging with AI-friendly debug files
@@ -27,12 +30,14 @@
 ## Quick Start in PyCharm (5 Minutes)
 
 ### 1. Clone and Open in PyCharm (1 minute)
+
 1. **Clone**: `git clone https://github.com/tentixo/txo-python-template.git`
 2. **Open in PyCharm**: File → Open → Select the cloned directory
 3. **Trust the project** when PyCharm asks
 4. **Let PyCharm install dependencies** automatically (it will detect `pyproject.toml`)
 
 ### 2. Setup Configuration (2 minutes)
+
 Right-click in PyCharm Project Explorer:
 
 ```
@@ -42,6 +47,7 @@ config/
 ```
 
 **PyCharm Steps**:
+
 1. Right-click `org-env-config_example.json` → **Copy**
 2. Right-click in `config/` folder → **Paste**
 3. Rename to `demo-test-config.json`
@@ -91,12 +97,14 @@ your-txo-project/
 ## Creating Your Own Scripts in PyCharm
 
 ### Method 1: Copy and Modify (Recommended)
+
 1. **Copy** `src/try_me_script.py` in PyCharm
 2. **Rename** to your script name
 3. **Modify** the business logic inside `main()`
 4. **Set run parameters**: `{your_org} {your_env}`
 
 ### Method 2: Start from Template
+
 ```python
 # Your new script: src/my_script.py
 from utils.logger import setup_logger
@@ -106,6 +114,7 @@ from utils.path_helpers import Dir
 
 logger = setup_logger()
 data_handler = TxoDataHandler()
+
 
 def main():
     # Auto-loads config, no token needed for local processing
@@ -122,15 +131,18 @@ def main():
 
     logger.info("✅ Processing complete!")
 
+
 def process_my_data(data):
     # Your logic here
     return data
+
 
 if __name__ == "__main__":
     main()
 ```
 
 ### PyCharm Run Configuration
+
 - **Parameters**: `myorg prod` (always org_id env_type)
 - **Working directory**: Project root
 - **Environment variables**: Add `DEBUG_LOGGING=1` for verbose output
@@ -140,6 +152,7 @@ if __name__ == "__main__":
 ## Common Usage Patterns
 
 ### Local Data Processing (Most Common)
+
 ```python
 def main():
     # No authentication needed
@@ -156,8 +169,10 @@ def main():
 **PyCharm Setup**: Parameters = `myorg prod`
 
 ### API Integration Scripts
+
 ```python
 from utils.api_factory import create_rest_api
+
 
 def main():
     # Explicitly request authentication
@@ -169,6 +184,7 @@ def main():
 ```
 
 **PyCharm Setup**:
+
 - Parameters = `myorg prod`
 - Ensure OAuth configured in config file
 
@@ -177,9 +193,10 @@ def main():
 ## Configuration in PyCharm
 
 ### Required Files (Script exits if missing)
+
 All config files live in `config/` directory:
 
-```json
+```json lines
 // demo-test-config.json (Main settings)
 {
   "global": {
@@ -187,12 +204,15 @@ All config files live in `config/` directory:
     "timeout-seconds": 30
   },
   "script-behavior": {
-    "rate-limiting": {"enabled": false, "calls-per-second": 10}
+    "rate-limiting": {
+      "enabled": false,
+      "calls-per-second": 10
+    }
   }
 }
 ```
 
-```json
+```json lines
 // demo-test-config-secrets.json (Gitignored automatically)
 {
   "client-secret": "your-actual-secret",
@@ -201,6 +221,7 @@ All config files live in `config/` directory:
 ```
 
 ### PyCharm JSON Editing
+
 - **Syntax highlighting** - PyCharm validates JSON automatically
 - **Schema validation** - Uses `schemas/org-env-config-schema.json`
 - **Auto-completion** - PyCharm suggests valid keys
@@ -211,18 +232,21 @@ All config files live in `config/` directory:
 ## Debugging in PyCharm
 
 ### Using PyCharm Debugger
+
 1. **Set breakpoints** in your script
 2. **Right-click** → **Debug 'script_name'**
 3. **Step through** TXO framework calls
 4. **Inspect variables** - config, data_handler, logger
 
 ### Log File Analysis
+
 - **Logs appear** in `logs/` directory
 - **Open in PyCharm** for syntax highlighting
 - **Search/filter** using PyCharm's find functionality
 - **Upload to AI** for debugging assistance
 
 ### Common Debug Scenarios in PyCharm
+
 ```python
 # Set breakpoint here to inspect config structure
 config = parse_args_and_load_config("Debug script")
@@ -237,15 +261,16 @@ print(f"Data shape: {data.shape}")  # Breakpoint here
 
 ## Troubleshooting in PyCharm
 
-| Problem | PyCharm Solution |
-|---------|------------------|
-| `Config file not found` | Copy examples from `config/` in Project Explorer |
-| `Invalid category 'output'` | Use `Dir.OUTPUT` - PyCharm autocompletes Dir.* |
-| `Token required but not configured` | Add `require_token=False` or edit config JSON |
-| `Import error: cannot import Dir` | Check PyCharm Python interpreter settings |
-| Script won't run | Check Run Configuration → Parameters field |
+| Problem                             | PyCharm Solution                                 |
+|-------------------------------------|--------------------------------------------------|
+| `Config file not found`             | Copy examples from `config/` in Project Explorer |
+| `Invalid category 'output'`         | Use `Dir.OUTPUT` - PyCharm autocompletes Dir.*   |
+| `Token required but not configured` | Add `require_token=False` or edit config JSON    |
+| `Import error: cannot import Dir`   | Check PyCharm Python interpreter settings        |
+| Script won't run                    | Check Run Configuration → Parameters field       |
 
 ### PyCharm-Specific Tips
+
 - **Red underlines** = Import or syntax errors
 - **Yellow highlights** = Warnings or suggestions
 - **Ctrl+Click** on TXO functions to see source code
@@ -256,6 +281,7 @@ print(f"Data shape: {data.shape}")  # Breakpoint here
 ## Project Templates and Patterns
 
 ### PyCharm File Templates
+
 Create **File → Settings → Editor → File and Code Templates**:
 
 ```python
@@ -268,6 +294,7 @@ from utils.path_helpers import Dir
 logger = setup_logger()
 data_handler = TxoDataHandler()
 
+
 def main():
     config = parse_args_and_load_config("${SCRIPT_NAME}")
 
@@ -275,12 +302,15 @@ def main():
 
     logger.info("✅ ${SCRIPT_NAME} completed")
 
+
 if __name__ == "__main__":
     main()
 ```
 
 ### PyCharm Run Configuration Templates
+
 Save run configurations for common patterns:
+
 - **Local Processing**: Parameters = `demo test`
 - **Production**: Parameters = `myorg prod`
 - **Debug Mode**: Environment = `DEBUG_LOGGING=1`
@@ -290,18 +320,23 @@ Save run configurations for common patterns:
 ## Advanced PyCharm Integration
 
 ### Code Inspections
+
 PyCharm will highlight TXO pattern violations:
+
 - **String literals** instead of `Dir.*` constants
 - **Soft-fail** patterns like `config.get()`
 - **Print statements** instead of logger calls
 
 ### PyCharm Plugins Recommended
+
 - **JSON Schema** - Validates config files
 - **Python Security** - Detects security issues
 - **Requirements** - Manages dependencies
 
 ### Version Control in PyCharm
+
 PyCharm Git integration respects `.gitignore`:
+
 - ✅ **Config examples** are tracked
 - ❌ **Secrets files** auto-ignored (`*-secrets.*`)
 - ❌ **Generated files** ignored (`logs/`, `output/`)
@@ -321,11 +356,13 @@ PyCharm Git integration respects `.gitignore`:
 ## Migration from Previous Versions
 
 ### v3.0 → v3.1 (Minor Updates)
+
 - Configuration structure unchanged
 - New documentation format standards
 - Enhanced PyCharm integration
 
 ### v2.x → v3.1 (Breaking Changes)
+
 ```python
 # Update imports
 from utils.path_helpers import Dir  # NEW requirement
@@ -340,6 +377,7 @@ from utils.path_helpers import Dir  # NEW requirement
 ```
 
 **PyCharm Migration Help**:
+
 1. **Find/Replace** string literals with Dir constants
 2. **Code inspection** will highlight patterns to update
 3. **Refactor** tools can help with bulk updates
@@ -348,18 +386,21 @@ from utils.path_helpers import Dir  # NEW requirement
 
 ## Version History
 
-**Version:** v3.1 | **Last Updated:** 2025-01-25
-
 ### v3.1 (Current)
+
 - Enhanced PyCharm integration and workflow
 - Streamlined configuration with examples in config/
 - Moved scripts to src/ for better organization
 
 ### v3.0
+
 - Type-safe path management with Dir constants
 - Token optional by default, mandatory configuration files
 - Enhanced security and structured logging patterns
 
 ---
 
-**Version:** v3.1 | **Domain:** TXO Python Template | **Purpose:** Production-ready Python automation framework with PyCharm integration
+**Version:** v3.1  
+**Last Updated:** 2025-09-28
+**Domain:** TXO Python Template  
+**Purpose:** Production-ready Python automation framework with PyCharm integration
