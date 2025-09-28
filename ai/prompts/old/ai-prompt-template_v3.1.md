@@ -1,20 +1,25 @@
 # TXO AI Development Prompt Template v3.1
 
+**\<remove_before_ai>**
+
 > **Purpose**: Structured prompt for generating TXO-compliant Python scripts using established patterns  
 > **Workflow**: Upload docs → Define requirements → Generate code → Create documentation  
 > **Token Efficiency**: Prevents AI hallucination by providing existing functions
 
-## ⚠️ Human TODO before use:
-1. Copy this prompt file amd change name
-2. **Read** the ADR document `ai/decided/txo-business-adr_v3.1.md` and browse `ai/decided/txo-technical-standards_v3.1.md`
-3. Make sure you have a clear understanding of the reality and your requirements 
+## ⚠️ Human TODO before use
+
+## Step-by-step
+
+1. Copy this prompt file amd change its name.
+2. **Read** the ADR document `ai/decided/txo-business-adr_v3.1.md` and browse
+   `ai/decided/txo-technical-standards_v3.1.md`
+3. Make sure you have a clear understanding of the reality and your requirements
 4. Decide your `org_id` and `env_type`parameters.
-5. Fill in your details. Remember that ERD in Mermaid format is awesome!
-6. Remove "Remove before AI" parts
+5. Fill in your details in Phase 2. Remember that ERD in Mermaid format is awesome!
+6. Remove everything between "<remove_before_ai>" including the tag.
+7. Upload to prompt to AI with the only comment "Wait for my command before starting the next Phase."
 
----
-
-## Template Validation Checklist (Remove before AI)
+### Template Validation Checklist (R
 
 Before using this template, verify:
 
@@ -25,40 +30,7 @@ Before using this template, verify:
 - [ ] Script purpose aligns with TXO patterns (automation, data processing, API integration)
 
 ---
-
-## Example Usage of This Template (Remove before AI)
-
-```xml
-
-<usage-example>
-    <scenario>Business Central Customer Sync Script</scenario>
-
-    **Phase 1**: Upload the 5 required documents ✓
-
-    **Phase 2**: Fill in requirements
-
-    ```xml
-
-    <script-name>bc-customer-sync</script-name>
-    <script-purpose>Sync customer data from CSV file to Business Central, handling duplicates and generating sync report
-    </script-purpose>
-    <requires-authentication>true</requires-authentication>
-    <input-data>CSV file: customer_export.csv with columns: name, email, phone, address</input-data>
-    <output-data>Excel report: sync-results.xlsx showing created/updated/failed operations</output-data>
-
-
-    **Phase 3**: AI generates complete script using existing TXO functions
-
-    **Phase 3.5**: Validate script against TXO compliance checklist ✓
-    - Run TXO compliance validator
-    - Run PyCharm Code Inspection
-    - (Optional) Provide PyCharm feedback to AI for code improvements
-
-    **Phase 4**: AI generates README.md and in-depth-README.md following TXO patterns
-</usage-example>
-```
-
----
+**\</remove_before_ai>**
 
 ## Phase 1: Context Upload
 
@@ -103,8 +75,8 @@ Before using this template, verify:
 
 - Read and understand TXO business rules and technical patterns
 - Note the available functions in`utils/` - DO NOT create new versions of existing functions
-- Understand the configuration structure and mandatory files
-- Use the schema to validate any configuration file changes
+- Understand the configuration and JSON schema use. In Phase 2 you most likely will have to **add** more to
+  config.
 - Request the user to upload the required-documents if not provided. Help the user by providing PATH from project root.
 
 ---
@@ -161,9 +133,10 @@ erDiagram
         [EXAMPLE:
         - An Azure Tenant with UUID [EXAMPLE], that has
         - Multiple Business Central (BC) environments, but we only work with one now: [EXAMPLE], these have
-        - One or more organizations (ORG), and we have these: [EXAMPLE]
-        - In each ORG we need to call these APIs: [EXAMPLE]
+        - One or more Company, and we have these: [EXAMPLE]
+        - In each Company we need to call these APIs: [EXAMPLE]
         - Example of API URI: [EXAMPLE]
+        - App Reg ID/Client ID: [EXAMPLE]
     </org-env-reality>
 
     <data-sources>
@@ -212,7 +185,7 @@ erDiagram
             [EXAMPLE:
             - Business Central: GET/POST /api/v2.0/companies/{companyId}/customers
             - Rate limit: 100 calls/minute
-            - Authentication: OAuth client credentials]
+            - Authentication: OAuth client credentials] or Authentication Code Flow (not supported from `utils/`)
         </api-endpoints>
 
         <resilience-requirements>
@@ -241,6 +214,7 @@ erDiagram
 - Define clear success/failure criteria
 - Specify any business rules or validation logic
 - Identify configuration that should be adjustable vs. hard-coded
+- Ask user if any key-value is missing to add all needed to config
 
 ---
 
@@ -343,7 +317,7 @@ Review the generated script and answer these questions:
     <configuration-patterns>
         <question>Does the script use hard-fail config access?</question>
         <check>Look for: config.get('key', default)</check>
-        <fix>Replace with: config['key']  # Hard-fail if missing</fix>
+        <fix>Replace with: config['key'] # Hard-fail if missing</fix>
     </configuration-patterns>
 
     <complexity-patterns>
@@ -364,6 +338,7 @@ Review the generated script and answer these questions:
 ### **Validation Process for Non-Experienced Users**
 
 **Step 1: Run TXO Compliance Check**
+
 ```bash
 # Automated TXO compliance validation (recommended)
 PYTHONPATH=. python utils/validate_tko_compliance.py src/your_script.py
@@ -375,6 +350,7 @@ grep -n "\.get(" your_script.py
 ```
 
 **Step 2: Run PyCharm Code Inspection (Recommended)**
+
 ```
 1. In PyCharm: Code → Inspect Code...
 2. Select your script file (not whole project to avoid markdown noise)
@@ -389,6 +365,7 @@ grep -n "\.get(" your_script.py
 ```
 
 **Step 3: Compare with Reference**
+
 - Open `ai/decided/utils-quick-reference_v3.1.md`
 - Look at the "Complete Script Pattern" section
 - Verify your script follows the same import structure
@@ -398,6 +375,7 @@ grep -n "\.get(" your_script.py
 If violations found, immediately refactor before proceeding to Phase 4.
 
 **Validation Complete When:**
+
 - ✅ No manual HTTP requests (uses create_rest_api)
 - ✅ No manual timestamps (uses get_utc_timestamp)
 - ✅ No string directory literals (uses Dir.*)
@@ -438,6 +416,7 @@ If PyCharm Code Inspection found issues, provide this feedback to AI for improve
 ```
 
 **Benefits of PyCharm + AI Review:**
+
 - **Static Analysis**: Catches issues TXO validator might miss
 - **Type Safety**: Ensures proper type hints
 - **Code Quality**: Professional-grade code standards
@@ -462,7 +441,7 @@ After the code is complete and tested, generate project documentation:
     </readme-quick-start>
 
     <readme-in-depth>
-        Generate `in-depth-README.md` following the pattern in `ai/decided/in-depth-readme_v3.1.md`:
+        Generate `in-depth-readme.md` following the pattern in `ai/decided/in-depth-readme_v3.1.md`:
         - **Architecture decisions**: Why specific approaches were chosen
         - **Complete setup**: Every configuration option explained
         - **Advanced usage**: All script features and options

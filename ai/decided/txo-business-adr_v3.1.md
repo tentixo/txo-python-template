@@ -1,4 +1,4 @@
-# TXO Business Architecture Decision Records v3.1
+# TXO Business Architecture Decision Records v3.1.1
 
 These ADRs define **TXO-specific business rules and organizational patterns** that reflect how TentXO operates,
 regardless of the underlying technology.
@@ -214,46 +214,145 @@ print("Debug info:", payload)  # Not structured
 
 ---
 
-## ADR-B006: Hierarchical Logging Context
+## ADR-B006: Smart Logging Context Strategy
 
 **Status:** MANDATORY
-**Date:** 2025-01-25
+**Date:** 2025-09-28 (Enhanced)
 
 ### Context
 
-TXO operates across multiple environments, organizations, and API endpoints. Log entries need clear context hierarchy
-for traceability.
+TXO operates across local processing and external API integrations. Logging context should be **proportional to complexity** - simple for local operations, detailed for external API calls that span multiple organizational layers.
 
 ### Decision
 
-Use square bracket context format: `[Higher/Mid/Lower]` for all operations.
+**Use smart context strategy** based on operation type, aligned with TXO's ERD structure.
 
-### Context Hierarchy
+### Context Requirements by Operation Type
 
-- **Higher**: Environment level (`Prod`, `Test`, `Dev`)
-- **Mid**: Organization/Company level (`CompanyOne`, `TXO`, `ClientABC`)
-- **Lower**: API/Operation level (`BusinessCentral`, `SalesOrders`, `CustomerSync`)
+#### **Local Operations** (File processing, data transformation)
+**Context**: **Optional** - Use simple, result-focused logging
+```python
+# Local file operations - simple logging
+logger.info("Processing customer data from CSV")
+logger.info(f"Saved {len(results)} records to {output_path}")
+logger.info("✅ Local processing completed successfully")
+```
 
-### Implementation
+#### **External API Operations** (Following ERD Hierarchy)
+**Context**: **Mandatory** - Full hierarchical context for traceability
+
+**ERD-Aligned Hierarchy**: `[BC_Environment/Company/API]`
+- **BC_Environment**: Business Central environment (`BC-Prod`, `BC-Test`, `BC-Dev`)
+- **Company**: Specific company within that environment (`Contoso`, `Fabrikam`, `Adventure-Works`)
+- **API**: Specific API endpoint being called (`CustomerAPI`, `SalesOrderAPI`, `ItemAPI`)
 
 ```python
-# Context building
-context = f"[{env_type.title()}/{company_name}/{api_name}]"
-logger.info(f"{context} Starting data synchronization")
-logger.debug(f"{context} Processing batch of {batch_size} records")
+# External API operations - full context
+context = f"[{bc_env_name}/{company_name}/{api_name}]"
+logger.info(f"{context} Starting API synchronization")
+logger.debug(f"{context} Processing batch {batch_num} of {total_batches}")
 logger.error(f"{context} API call failed: {error_message}")
-
-# Examples
-logger.info("[Prod/CompanyOne/BusinessCentral] Retrieved 150 sales orders")
-logger.error("[Test/TXO/CustomerAPI] Authentication failed: invalid token")
-logger.debug("[Dev/ClientABC/InventorySync] Transforming product data")
 ```
+
+### Implementation Examples
+
+#### **Local Processing Script**:
+```python
+# Simple, focused logging for local operations
+logger.info("🚀 Starting customer data processing")
+logger.info(f"Loaded {len(customers)} customers from {input_file}")
+logger.info(f"✅ Saved processed data to {output_file}")
+```
+
+#### **API Integration Script**:
+```python
+# Full hierarchical context for external API calls
+context = f"[{config['bc-environment']}/{company['name']}/{api_endpoint}]"
+logger.info(f"{context} Starting synchronization")
+logger.debug(f"{context} Request payload: {sanitized_payload}")
+logger.error(f"{context} Rate limit exceeded, retrying in {delay}s")
+
+# Real examples following ERD:
+logger.info("[BC-Prod/Contoso/CustomerAPI] Retrieved 150 customers")
+logger.error("[BC-Test/Fabrikam/SalesOrderAPI] Authentication failed: token expired")
+logger.debug("[BC-Dev/Adventure-Works/ItemAPI] Processing batch 3 of 10")
+```
+
+#### **Mixed Operations Script**:
+```python
+# Local operations - simple logging
+logger.info("Loading customer data from CSV")
+
+# External API calls - full context
+for company in companies:
+    context = f"[{bc_env}/{company['name']}/CustomerAPI]"
+    logger.info(f"{context} Syncing {len(customers)} customers")
+
+    # API operations with context
+    try:
+        response = api.post(f"/companies/{company['id']}/customers", data=customer_data)
+        logger.info(f"{context} ✅ Created {len(response)} customer records")
+    except ApiError as e:
+        logger.error(f"{context} ❌ Sync failed: {e}")
+
+# Local operations - simple logging
+logger.info(f"✅ Sync completed. Results saved to {output_file}")
+```
+
+### Context Decision Rules
+
+#### **When to Use Full Context** `[BC_Env/Company/API]`:
+- Making external API calls
+- Operations spanning multiple companies or environments
+- Need for detailed traceability and debugging
+- Integration with external systems
+
+#### **When to Use Simple Logging**:
+- Local file processing only
+- Data transformation without external calls
+- Single-environment operations
+- Internal utility functions
+
+#### **Context Building Pattern**:
+```python
+# For API operations - build from config and runtime data
+bc_env = config["bc-environment"]  # From configuration
+company_name = company_data["tech_name"]  # From data being processed
+api_name = "CustomerAPI"  # From the specific API being called
+
+context = f"[{bc_env}/{company_name}/{api_name}]"
+```
+
+### ERD Alignment
+
+**Follows TXO ERD Structure**:
+```
+Tenant ||--o{ BC_Env: "has"
+BC_Env ||--o{ Company: "contains"
+Company ||--o{ API: "exposes"
+```
+
+**Logging Context Reflects Reality**:
+- **BC_Env**: The environment within the tenant
+- **Company**: The specific company being processed
+- **API**: The specific API endpoint being used
 
 ### Consequences
 
-- Positive: Clear traceability, easy log filtering, environment isolation
-- Negative: Longer log messages, context management overhead
-- Mitigation: Helper functions for context building, consistent formatting
+**Positive**:
+- **Proportional complexity**: Simple ops get simple logging, complex ops get detailed context
+- **ERD alignment**: Logging structure matches actual system architecture
+- **Clear traceability**: Easy to trace issues through the hierarchy
+- **Reduced noise**: Local operations don't clutter logs with unnecessary context
+
+**Negative**:
+- **Decision overhead**: Developers must choose appropriate context level
+- **Consistency risk**: Mixed approaches could lead to inconsistent logging
+
+**Mitigation**:
+- **Clear rules**: Simple decision tree for context requirements
+- **Helper functions**: Context building utilities in framework
+- **Examples**: Comprehensive patterns for both operation types
 
 ---
 
@@ -471,6 +570,14 @@ from utils.path_helpers import Dir
 config_path = get_path(Dir.CONFIG, 'settings.json')
 data_file = data_handler.load(Dir.DATA, 'input.csv')
 data_handler.save(results, Dir.OUTPUT, 'report.xlsx')
+
+# ✅ CORRECT - Multi-sheet Excel with UTC timestamp (v3.1.1)
+report_sheets = {
+    "Summary": processing_summary_df,
+    "Created_Records": created_df,
+    "Failed_Records": failed_df
+}
+data_handler.save_with_timestamp(report_sheets, Dir.OUTPUT, 'sync-report.xlsx', add_timestamp=True)
 
 # ❌ WRONG - String literals (typo-prone)
 config_path = get_path('config', 'settings.json')
@@ -1019,12 +1126,88 @@ These rules reflect TXO's values and operational requirements, separate from tec
 
 ---
 
+## ADR-B014: Documentation Separation Principles
+
+**Status:** MANDATORY
+**Date:** 2025-09-28
+
+### Context
+
+TXO projects generate multiple documentation files that serve different audiences with different time constraints and expertise levels. Without clear separation principles, documentation becomes redundant, overwhelming, or misaligned with user needs.
+
+### Decision
+
+**Implement strict documentation separation** based on target audience and time-to-success goals.
+
+### Documentation Contracts
+
+#### **README.md Contract**
+**Target**: "New dev, 15 minutes to success"
+**Content Limit**: Maximum 2 screens
+**Focus**: What, How (basic), Quick start
+
+**Required Sections**:
+1. Purpose/Scope - What and why (1-2 sentences)
+2. Prerequisites - Python version, dependencies
+3. Setup Instructions - Clone to first run
+4. Usage - CLI invocation and examples
+5. Config Overview - Basic structure, link to schema
+6. Output Contract - File formats and naming
+7. Logging Contract - Where logs appear, key messages
+8. ProcessingResults Summary - Success/warning/failure examples
+9. Troubleshooting - Common issues and quick fixes
+
+**Forbidden Content**: Architecture deep-dives, comprehensive config options, advanced customization, implementation explanations
+
+#### **in-depth-readme.md Contract**
+**Target**: "Experienced dev/maintainer, deep understanding"
+**Focus**: Why, How (advanced), Architecture, Extension points
+
+**Required Sections**:
+1. Architecture & Design Rationale - Why decisions were made
+2. Detailed Config Options - Full parameter explanations
+3. Error Handling Patterns - Complete taxonomy and strategies
+4. Developer Notes - Extension and customization guidance
+5. Comprehensive Examples - Advanced usage scenarios
+6. References - Links to ADRs and framework components
+
+**Content Principles**: DO NOT duplicate README, EXPAND where minimal, EXPLAIN rationale, PROVIDE advanced examples
+
+### Implementation
+
+**Documentation Balance Requirements**:
+- README: "How to run successfully"
+- in-depth: "How to understand, customize, and maintain"
+
+**Quality Gates**:
+1. README Review: Can new developer succeed in 15 minutes?
+2. in-depth Review: Can maintainer understand and extend?
+3. Balance Review: No duplication or gaps?
+4. Consistency Review: Examples and configs match?
+
+### Consequences
+
+- **Positive**: Clear audiences, no overwhelming beginners, comprehensive maintainer reference
+- **Negative**: Two files to maintain, coordination needed
+- **Mitigation**: Phase 8 balance review, clear contracts, cross-referencing
+
+---
+
 ## Version History
 
-### v3.1 (Current)
+### v3.1.1 (Current)
+
+- Enhanced ADR-B006: Smart Logging Context Strategy with ERD alignment
+- Implemented proportional complexity (simple local vs detailed external operations)
+- Added clear decision rules for when to use hierarchical context
+- Aligned logging structure with TXO ERD (BC_Environment/Company/API)
+
+### v3.1
 
 - Added documentation format standards and version synchronization
 - Enhanced security requirements and naming conventions
+- Added documentation separation principles (ADR-B014)
+- Implemented README vs in-depth documentation contracts
 
 ### v3.0
 
@@ -1033,7 +1216,7 @@ These rules reflect TXO's values and operational requirements, separate from tec
 
 ---
 
-**Version:** v3.1   
-**Last Updated:** 2025-01-25  
-**Domain:** TXO Business Architecture  
+**Version:** v3.1.1
+**Last Updated:** 2025-09-28
+**Domain:** TXO Business Architecture
 **Purpose:** Organizational patterns and operational requirements  

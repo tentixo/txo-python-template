@@ -1,4 +1,4 @@
-# TXO Python Template v3.1
+# TXO Python Template v3.1.1
 
 > **Problem Solved**: Consistent, secure, production-ready Python automation across multiple organizations and
 > environments

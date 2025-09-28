@@ -1,4 +1,4 @@
-# TXO Python Template In-Depth Guide v3.1
+# TXO Python Template In-Depth Guide v3.1.1
 
 > **Audience**: Developers who want to understand the architecture and customize the framework
 > **Time Investment**: 30 minutes to full understanding

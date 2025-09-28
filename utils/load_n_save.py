@@ -21,7 +21,7 @@ from typing import Union, Dict, Any, Optional, List, Literal
 
 from utils.logger import setup_logger
 from utils.path_helpers import CategoryType, get_path, format_size
-from utils.exceptions import FileOperationError, ValidationError
+from utils.exceptions import FileOperationError, ValidationError, ErrorContext
 
 # Hard-fail imports - TXO requires properly configured environment
 import pandas as pd
@@ -184,7 +184,14 @@ class TxoDataHandler:
                 valid = False
                 error_msg = f"{data_type} data cannot be saved to {detected} format"
         elif isinstance(data, (dict, list)):
-            if detected not in ('json', 'yaml'):
+            if isinstance(data, dict) and detected == 'excel':
+                # Allow dict of DataFrames for multi-sheet Excel
+                if all(hasattr(v, 'to_excel') for v in data.values()):
+                    valid = True  # Dict of DataFrames → Excel multi-sheet is valid
+                else:
+                    valid = False
+                    error_msg = f"Excel format requires dict of DataFrames, got dict with mixed types"
+            elif detected not in ('json', 'yaml'):
                 valid = False
                 error_msg = f"{data_type} data should be saved as json/yaml, not {detected}"
         elif hasattr(data, 'to_csv') and hasattr(data, 'to_excel'):
@@ -311,13 +318,27 @@ class TxoDataHandler:
                 return TxoDataHandler.save_gzip(data, directory, filename, **kwargs)
             else:
                 return TxoDataHandler.save_binary(data, directory, filename)
-        elif isinstance(data, (dict, list)):
+        elif isinstance(data, dict):
+            # Check if dict contains DataFrames for multi-sheet Excel
+            if TxoDataHandler.detect_format(filename) == 'excel' and all(hasattr(v, 'to_excel') for v in data.values()):
+                return TxoDataHandler._save_multi_sheet_excel(data, directory, filename, **kwargs)
+            else:
+                # Regular dict/list → JSON/YAML
+                format_type = TxoDataHandler.detect_format(filename)
+                if format_type == 'yaml':
+                    return TxoDataHandler.save_yaml(data, directory, filename, **kwargs)
+                else:
+                    return TxoDataHandler.save_json(data, directory, filename, **kwargs)
+        elif isinstance(data, list):
             format_type = TxoDataHandler.detect_format(filename)
             if format_type == 'yaml':
                 return TxoDataHandler.save_yaml(data, directory, filename, **kwargs)
             else:
                 return TxoDataHandler.save_json(data, directory, filename, **kwargs)
         elif hasattr(data, 'to_csv') and hasattr(data, 'to_excel'):
+            # Single DataFrame → Auto-named "Data" sheet for Excel
+            if TxoDataHandler.detect_format(filename) == 'excel':
+                kwargs.setdefault('sheet_name', 'Data')
             return TxoDataHandler._save_dataframe(data, directory, filename, **kwargs)
         elif hasattr(data, 'save') and callable(data.save):
             return TxoDataHandler._save_workbook(data, directory, filename)
@@ -936,6 +957,93 @@ class TxoDataHandler:
             )
 
     # ==================== Private Helper Methods ====================
+
+    @staticmethod
+    def _save_multi_sheet_excel(sheets_data: Dict[str, 'pd.DataFrame'],
+                               directory: CategoryType,
+                               filename: str,
+                               **kwargs) -> Path:
+        """
+        Save multiple DataFrames to Excel file with multiple sheets.
+
+        Args:
+            sheets_data: Dictionary of {sheet_name: DataFrame}
+            directory: Target directory category
+            filename: Target filename (must be .xlsx)
+            **kwargs: Additional arguments passed to DataFrame.to_excel()
+
+        Returns:
+            Path to saved Excel file
+
+        Raises:
+            ValidationError: If sheet names invalid or data types incorrect
+            FileOperationError: If save operation fails
+
+        Example:
+            > sheets = {"Summary": summary_df, "Details": detail_df}
+            > path = TxoDataHandler._save_multi_sheet_excel(sheets, Dir.OUTPUT, "report.xlsx")
+        """
+        file_path = get_path(directory, filename)
+
+        # Validate sheet names (Excel limitations)
+        for sheet_name in sheets_data.keys():
+            if len(sheet_name) > 31:
+                raise ValidationError(
+                    f"Excel sheet name too long: '{sheet_name}' ({len(sheet_name)} chars, max 31)",
+                    context=ErrorContext(
+                        operation="excel_sheet_validation",
+                        resource=filename,
+                        details={"sheet_name": sheet_name, "max_length": 31}
+                    )
+                )
+
+            # Check for invalid Excel sheet name characters
+            invalid_chars = set(sheet_name) & set('/\\?*[]')
+            if invalid_chars:
+                raise ValidationError(
+                    f"Excel sheet name contains invalid characters: '{sheet_name}' has {invalid_chars}",
+                    context=ErrorContext(
+                        operation="excel_sheet_validation",
+                        resource=filename,
+                        details={"sheet_name": sheet_name, "invalid_chars": list(invalid_chars)}
+                    )
+                )
+
+        # Validate all values are DataFrames
+        non_dataframes = [k for k, v in sheets_data.items() if not hasattr(v, 'to_excel')]
+        if non_dataframes:
+            raise ValidationError(
+                f"Excel multi-sheet requires all values to be DataFrames. Non-DataFrames: {non_dataframes}",
+                context=ErrorContext(
+                    operation="multi_sheet_excel_validation",
+                    resource=filename,
+                    details={"non_dataframe_sheets": non_dataframes}
+                )
+            )
+
+        try:
+            logger.debug(f"Saving multi-sheet Excel to {file_path} ({len(sheets_data)} sheets)")
+
+            # Save all sheets to single Excel file
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                for sheet_name, df in sheets_data.items():
+                    df.to_excel(writer, sheet_name=sheet_name, index=False, **kwargs)
+
+            # Log success with sheet details
+            sheet_info = [f"{name}({len(df)} rows)" for name, df in sheets_data.items()]
+            logger.info(f"Saved multi-sheet Excel to {file_path} - Sheets: {', '.join(sheet_info)}")
+
+            return file_path
+
+        except Exception as e:
+            raise FileOperationError(
+                f"Failed to save multi-sheet Excel file: {e}",
+                context=ErrorContext(
+                    operation="multi_sheet_excel_save",
+                    resource=str(file_path),
+                    details={"sheet_count": len(sheets_data), "sheets": list(sheets_data.keys())}
+                )
+            ) from e
 
     @staticmethod
     def _save_dataframe(df: 'pd.DataFrame',
