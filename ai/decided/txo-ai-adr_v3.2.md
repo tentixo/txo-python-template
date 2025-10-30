@@ -186,7 +186,7 @@ ai/
 - Granular task tracking (Priority 1.1, 1.2, etc.)
 - Status: pending/in-progress/completed
 - Enables resume at task level
-- MANDATORY for framework refactoring (ADR-B015)
+- MANDATORY for Refactoring workflow (ADR-B015)
 
 **ai/PROJECT-STATUS.md** (ai/ root):
 - High-level progress (Code done, Meta-work 75%)
@@ -338,6 +338,45 @@ Without tracking meta-tasks, projects feel "finished" when code works, but lack 
 - Can't forget meta-tasks (PROJECT-STATUS tracks them)
 - High-level status for stakeholders
 - Detailed tasks for execution
+
+### Three Levels of Completion
+
+**Done → Done-Done → Done-Done-Done**:
+
+1. **Done** (Code Level):
+   - Code works, tests pass
+   - Syntax validation clean
+   - Functionality demonstrated
+   - Tracked in: ai/TODO.md
+
+2. **Done-Done** (Meta Level):
+   - All code complete
+   - Documentation updated
+   - ADRs enhanced
+   - Versions synchronized
+   - Hygiene complete
+   - Tracked in: ai/PROJECT-STATUS.md (should show 100%)
+
+3. **Done-Done-Done** (Published Level):
+   - Git commit (comprehensive message)
+   - Git tag (annotated, versioned)
+   - Pushed to remote (if applicable)
+   - UPPERCASE files archived/deleted
+   - Guided by: ai/reports/github-tagging-guide.md
+
+**Final Step**: After PROJECT-STATUS.md shows 100% done-done:
+```bash
+# See comprehensive guide
+cat ai/reports/github-tagging-guide.md
+
+# AI can generate commit message
+# "Generate git commit message from release-notes_v{X}.md"
+
+# Commit and tag
+git add .
+git commit -m "[comprehensive TXO pattern message]"
+git tag v{X} -m "[release summary]"
+```
 
 ---
 

@@ -550,6 +550,18 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 
 **🎯 Target Audience: "New developer needs 15 minutes to success"**
 
+**⚠️ IMPORTANT**: You are creating README.md for **THE SCRIPT**, not the template
+
+**Template to use**: `ai/decided/readme-example_v3.2.md`
+- This is a PATTERN to copy (has header explaining it's a template)
+- Replace ALL placeholders with script-specific content
+- Do NOT copy verbatim - adapt to your script
+
+**Generated README.md**:
+- Documents YOUR script (not the TXO Template)
+- Explains what your script does, how to run it, configuration
+- Audience: Users of your script
+
 **README.md Content Contract:**
 ```xml
 <readme-specifications>
@@ -635,6 +647,18 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 ## Phase 7: In-Depth Documentation (MAINTAINER FOCUS)
 
 **🎯 Target Audience: "Experienced developer/maintainer needs deep understanding"**
+
+**⚠️ IMPORTANT**: You are creating in-depth-readme.md for **THE SCRIPT**, not the template
+
+**Template to use**: `ai/decided/in-depth-readme-example_v3.2.md`
+- This is a PATTERN to copy (has header explaining it's a template)
+- Replace placeholders with script-specific technical details
+- Scale depth to script complexity (simple script = shorter, complex = comprehensive)
+
+**Generated in-depth-readme.md**:
+- Explains architecture and design rationale of YOUR script
+- How to extend and customize your script
+- Audience: Maintainers of your script
 
 **in-depth-readme.md Content Contract:**
 ```xml
@@ -755,6 +779,30 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 5. **Documentation balance** verified
 
 **🎉 PROJECT COMPLETE: All phases finished with proper validation and documentation separation**
+
+---
+
+## Final Step: Done-Done-Done (Git Operations)
+
+**Project is done-done** (code + documentation complete)
+
+**Next**: Git commit and tag for done-done-done (published)
+
+**See**: `ai/reports/github-tagging-guide.md` for:
+- TXO commit message template
+- Git tagging strategy
+- Example commit/tag for your script
+
+**AI can help**:
+- "Generate git commit message from my README.md and script following TXO pattern"
+- AI will use github-tagging-guide template
+
+**Commands**:
+```bash
+git add .
+git commit -m "[TXO pattern message]"
+git tag v1.0 -m "[tag message]"  # If creating release
+```
 
 ---
 

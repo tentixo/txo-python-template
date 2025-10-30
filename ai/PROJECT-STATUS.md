@@ -159,19 +159,25 @@ Hygiene:       [████████████████████] 10
 
 ---
 
-## 📋 Optional User Actions
+## 📋 Optional User Actions (Done-Done-Done)
 
-**Now (If Desired)**:
-1. Review ai/TODO.md - See all tasks completed
+**Review Work** (If Desired):
+1. Review ai/TODO.md - All 25+ tasks completed
 2. Review ai/reports/release-notes_v3.2.md - Comprehensive changelog
-3. Archive old prompt: mv refactoring-xml-ai-prompt_v3.0.xml.md ai/prompts/old/
+3. Review ai/reports/v3.2-completion-summary.md - Final summary
 
-**Before Production Deploy**:
-4. Git commit: Comprehensive message referencing v3.2
-5. Git tag: v3.2 -m "Clean Code, 100% ADR Compliance, AI Workflow System"
-6. Clean up: Delete or archive UPPERCASE files if desired (optional)
+**Git Operations** (Publish v3.2):
+4. **See**: ai/reports/github-tagging-guide.md for complete guide
+5. Git commit: Use template from tagging guide (comprehensive message)
+6. Git tag v3.2: Annotated tag with release summary
+7. Git push: Publish to remote (if applicable)
 
-**All optional** - Code is production-ready now!
+**Cleanup** (Optional):
+8. Archive old prompt: mv refactoring-xml-ai-prompt_v3.0.xml.md ai/prompts/old/
+9. Delete or archive UPPERCASE files: ai/TODO.md, ai/PROJECT-STATUS.md (your choice)
+10. Keep AI-CONTEXT-BRIEF.md for reference or delete
+
+**Status**: Code production-ready, git operations optional (local vs published)
 
 ---
 

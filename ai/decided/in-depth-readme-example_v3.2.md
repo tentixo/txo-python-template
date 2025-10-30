@@ -1,7 +1,21 @@
-# TXO Python Template In-Depth Guide v3.1.1
+# In-Depth README Template for Script Creating Workflow v3.2
 
-> **Audience**: Developers who want to understand the architecture and customize the framework
-> **Time Investment**: 30 minutes to full understanding
+> **⚠️ TEMPLATE DOCUMENT - Not Project Documentation**
+>
+> **Purpose**: Pattern for AI to copy during Script Creating workflow for maintainer docs
+> **Usage**: AI generates script-specific in-depth-readme.md from this structure
+> **Not For**: Documenting the TXO Template project itself
+> **Audience**: AI assistants generating comprehensive maintainer documentation
+> **Workflow**: Script Creating (ai/prompts/ai-prompt-template_v3.2.md Phase 7)
+>
+> **AI Instructions**: Copy this structure for in-depth documentation, expand based on script complexity
+
+---
+
+# [Your Script Name] - In-Depth Guide
+
+> **Audience**: Maintainers and developers who need to extend or customize this script
+> **Time Investment**: [Estimate] to full understanding
 
 ## Table of Contents
 

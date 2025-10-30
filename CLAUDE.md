@@ -74,6 +74,24 @@ cp config/org-env-config_example.json config/demo-test-config.json
 cp config/org-env-config-secrets_example.json config/demo-test-config-secrets.json
 ```
 
+### **Git Operations (Done-Done-Done)**
+```bash
+# See comprehensive guide:
+cat ai/reports/github-tagging-guide.md
+
+# Quick reference (after done-done complete):
+git add .
+git commit -m "type: summary (see guide for TXO comprehensive template)"
+git tag v3.2 -m "annotated tag message"
+git push origin main --tags
+
+# AI can generate commit message:
+# "Generate git commit message from ai/reports/release-notes_v3.2.md
+#  following TXO pattern in github-tagging-guide.md"
+```
+
+**Guide**: `ai/reports/github-tagging-guide.md` (commit templates, tagging strategy, examples)
+
 ---
 
 ## 📁 **Project Navigation for AI**
@@ -94,11 +112,12 @@ cp config/org-env-config-secrets_example.json config/demo-test-config-secrets.js
 ```
 
 ### **Key Files for AI Development**
-- **Patterns Reference**: `ai/decided/utils-quick-reference_v3.1.md` (step 3: coding)
-- **Business Rules**: `ai/decided/txo-business-adr_v3.1.md` (step 2: decisions)
-- **Technical Standards**: `ai/decided/txo-technical-standards_v3.1.md` (step 4: validation)
-- **AI Workflow**: `ai/prompts/ai-prompt-template_v3.1.1.md` (step 6: prompt updates)
-- **Documentation Examples**: `ai/decided/readme-example_v3.1.md`, `ai/decided/in-depth-readme-example_v3.1.md` (step 7)
+- **Patterns Reference**: `ai/decided/utils-quick-reference_v3.2.md` (step 3: coding)
+- **Business Rules**: `ai/decided/txo-business-adr_v3.2.md` (step 2: decisions)
+- **Technical Standards**: `ai/decided/txo-technical-standards_v3.2.md` (step 4: validation)
+- **AI Workflow**: `ai/decided/txo-ai-adr_v3.2.md` (NEW - AI document standards)
+- **AI Prompts**: `ai/prompts/ai-prompt-template_v3.2.md` (Script Creating), `ai/prompts/refactoring-ai-prompt_v3.2.md` (Refactoring)
+- **Documentation Examples**: `ai/decided/readme-example_v3.2.md`, `ai/decided/in-depth-readme-example_v3.2.md` (step 7)
 
 ---
 

@@ -10,14 +10,14 @@
 
 ### 1. ai-prompt-template_v3.2.md
 **Use For**: Creating ONE new script
-**Workflow Type**: Script creation
+**Workflow Type**: Script Creating
 **Audience**: Less experienced coders, AI-first users
 **Duration**: 2-4 hours typical
 **Phases**: 8 (context → requirements → code → validation → quality → docs → balance)
 
 ### 2. refactoring-ai-prompt_v3.2.md
-**Use For**: Refactoring utils/ framework
-**Workflow Type**: Framework refactoring
+**Use For**: Improving utils/ framework
+**Workflow Type**: Refactoring
 **Audience**: Experienced coders, framework maintainers
 **Duration**: 20-60 hours typical
 **Phases**: Variable (assessment → refactor by priority → validate → document)
@@ -53,7 +53,7 @@ Start
 
 ## 📊 Detailed Comparison
 
-| Aspect | Script Creation | Framework Refactoring |
+| Aspect | Script Creating | Refactoring |
 |--------|----------------|----------------------|
 | **Prompt File** | ai-prompt-template_v3.2.md | refactoring-ai-prompt_v3.2.md |
 | **Output** | 1 script + config + tests + docs | Multiple utils files + ADRs + tests |
@@ -69,7 +69,7 @@ Start
 
 ## 🚀 Quick Start
 
-### For Script Creation:
+### For Script Creating:
 
 ```bash
 # 1. Copy and customize the template
@@ -96,7 +96,7 @@ cp ai/prompts/ai-prompt-template_v3.2.md my-script-prompt.md
 
 ---
 
-### For Framework Refactoring:
+### For Refactoring:
 
 ```bash
 # 1. Prepare PyCharm inspection results (recommended)
@@ -124,7 +124,7 @@ cp ai/prompts/ai-prompt-template_v3.2.md my-script-prompt.md
 
 ## 💡 Best Practices
 
-### For Script Creation (ai-prompt-template):
+### For Script Creating (ai-prompt-template):
 
 **DO**:
 - ✅ Fill Phase 2 requirements completely (AI needs context)
@@ -138,7 +138,7 @@ cp ai/prompts/ai-prompt-template_v3.2.md my-script-prompt.md
 - ❌ Skip Phase 4 validation (catches TXO violations)
 - ❌ Skip documentation (ADR-B015 requires it)
 
-### For Framework Refactoring (refactoring-xml-ai-prompt):
+### For Refactoring (refactoring-ai-prompt):
 
 **DO**:
 - ✅ Run PyCharm inspection first (finds issues across codebase)
@@ -230,19 +230,19 @@ A: If >10 hours OR might need breaks OR touching >5 utils files
 
 ## 📦 Quick Reference
 
-### Script Creation Command
+### Script Creating Command
 ```
 Upload: ai-prompt-template_v3.2.md (customized with your Phase 2 requirements)
 Start: "Wait for my explicit command before starting each phase."
 Progress: Phase-by-phase with user confirmation
 ```
 
-### Framework Refactoring Command
+### Refactoring Command
 ```
 Upload: refactoring-ai-prompt_v3.2.md
 Format: Markdown + inline XML (human-friendly per ADR-B016)
 Start: "Read the refactoring prompt and start Phase 0 assessment"
-Progress: Priority-by-priority, update ai/to-do.md
+Progress: Priority-by-priority, update ai/TODO.md
 ```
 
 ---

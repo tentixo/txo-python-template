@@ -405,7 +405,60 @@ See: `ai/prompts/large-refactoring-workflow_v3.2.md`
 
 ---
 
+## Final Step: Done-Done-Done (Git Operations)
+
+**After refactoring complete and user approves**:
+
+**Project is done-done** (code + tests + ADRs + documentation)
+
+**Next**: Git commit and tag for done-done-done (published)
+
+**See**: `ai/reports/github-tagging-guide.md` for:
+- TXO commit message template (comprehensive pattern)
+- Git tagging strategy (annotated tags)
+- Examples from actual refactorings
+
+**AI can help**:
+```
+"Generate git commit message from ai/reports/release-notes_v3.2.md
+ following TXO pattern in github-tagging-guide.md"
+```
+
+AI will create comprehensive commit message including:
+- What changed (files, features, fixes)
+- ADRs created/modified
+- Test coverage
+- Breaking changes (or none)
+- Quality metrics
+
+**Commands**:
+```bash
+git add .
+git commit -m "[AI-generated comprehensive message]"
+git tag v3.2 -m "[release summary]"
+git push origin main --tags
+```
+
+---
+
+## 📚 Documentation Guidance for Refactoring
+
+**Template Examples** (ai/decided/*-example_v3.2.md):
+- `readme-example_v3.2.md` and `in-depth-readme-example_v3.2.md`
+- **Purpose**: TEMPLATES for Script Creating workflow (not project documentation)
+- **Refactoring action**: Update ONLY if patterns shown are outdated/incorrect
+- **Leave as-is**: If patterns still valid (don't update just for version number)
+
+**Project README.md** (root):
+- Documents the TXO Template project itself (how to use template)
+- **Refactoring action**: Update if user-facing template features changed
+- **For v3.2**: Optional (internal utils/ refactoring, not user-facing changes)
+
+**Remember**: Script Creating uses templates to generate docs for created scripts, Refactoring updates internal framework
+
+---
+
 **Version**: v3.2
-**Type**: Framework Refactoring Workflow
+**Type**: Refactoring Workflow
 **Format**: Markdown + Inline XML (per ADR-B016)
 **Validated**: Successfully used for TXO v3.2 refactoring (16 tasks, 100% completion)

@@ -1,8 +1,21 @@
-# TXO Python Template v3.1.1
+# README Template for Script Creating Workflow v3.2
 
-> **Problem Solved**: Consistent, secure, production-ready Python automation across multiple organizations and
-> environments
-> **Get Running**: 5 minutes from clone to first script execution
+> **⚠️ TEMPLATE DOCUMENT - Not Project Documentation**
+>
+> **Purpose**: Pattern for AI to copy during Script Creating workflow
+> **Usage**: AI generates script-specific README.md from this structure
+> **Not For**: Documenting the TXO Template project itself (see root README.md)
+> **Audience**: AI assistants generating new scripts
+> **Workflow**: Script Creating (ai/prompts/ai-prompt-template_v3.2.md)
+>
+> **AI Instructions**: Copy this structure, replace ALL placeholders with actual script details
+
+---
+
+# [Your Script Name]
+
+> **Problem Solved**: [What business problem does your script solve]
+> **Get Running**: [Time estimate] from setup to first execution
 
 ## What This Solves
 

@@ -1301,7 +1301,7 @@ TXO projects generate multiple documentation files that serve different audience
 
 ### Context
 
-TentXO (TXO) values user independence and long-term maintainability. Undocumented code creates support burden, increases onboarding time, and reduces adoption. Different work types (script creation vs framework refactoring) have different documentation needs.
+TentXO (TXO) values user independence and long-term maintainability. Undocumented code creates support burden, increases onboarding time, and reduces adoption. Different work types (Script Creating vs Refactoring workflows) have different documentation needs.
 
 ### Decision
 
@@ -1318,7 +1318,7 @@ Documentation is a **first-class deliverable** with mandatory requirements based
 
 ### Documentation Requirements by Work Type
 
-#### For Script Creation (User-Facing)
+#### For Script Creating Workflow (User-Facing)
 
 **MANDATORY**:
 - `README.md` - Quick-start guide (15-minute success target, ADR-B014)
@@ -1335,10 +1335,10 @@ Documentation is a **first-class deliverable** with mandatory requirements based
 - Complex scripts: Full in-depth-readme (5+ screens)
 - Both files always created (consistent process)
 
-#### For Framework Refactoring (Internal)
+#### For Refactoring Workflow (Internal)
 
 **MANDATORY**:
-- `ai/to-do.md` - Task tracking with status (enables resumability)
+- `ai/TODO.md` - Task tracking with status (enables resumability)
 - Test coverage for changed code
 - ADR updates if new patterns introduced
 - Session summary for multi-session work
@@ -1352,7 +1352,7 @@ Documentation is a **first-class deliverable** with mandatory requirements based
 
 ### Implementation
 
-**Script Creation Workflow** (ai-prompt-template):
+**Script Creating Workflow** (ai-prompt-template):
 ```
 Phase 1: Context upload
 Phase 2: Requirements (ask about tests, confirm docs)
@@ -1364,10 +1364,10 @@ Phase 7: in-depth-readme.md (mandatory, scaled to complexity)
 Phase 8: Balance review
 ```
 
-**Framework Refactoring Workflow** (refactoring-xml-ai-prompt):
+**Refactoring Workflow** (refactoring-ai-prompt):
 ```
-Phase 0: Assessment (create ai/to-do.md - mandatory)
-Phase 1-N: Refactor by priority (update ai/to-do.md)
+Phase 0: Assessment (create ai/TODO.md - mandatory)
+Phase 1-N: Refactor by priority (update ai/TODO.md)
 Phase N+1: Test coverage verification (mandatory)
 Phase N+2: ADR updates (if new patterns)
 Phase N+3: Validation
@@ -1394,12 +1394,44 @@ Documentation: Only if user-facing changes
 - Comprehensive Examples
 - References to ADRs
 
-**ai/to-do.md Template** (for refactoring):
+**ai/TODO.md Template** (for Refactoring workflow):
 - Task list with status (pending/in-progress/completed)
 - Priority ranking
 - Estimated effort
 - Success criteria
 - File references with line numbers
+
+### Template vs Project Documentation Distinction
+
+**IMPORTANT**: Differentiate between documentation templates and project documentation
+
+#### Template Examples (ai/decided/*-example_v3.2.md)
+
+**Purpose**: Patterns for AI to copy during Script Creating workflow
+- `readme-example_v3.2.md` - Template for script's README.md
+- `in-depth-readme-example_v3.2.md` - Template for script's in-depth documentation
+
+**Content**: Generic structure with placeholders like [Your Script Name], [What it does]
+
+**AI Action**:
+- **During Script Creating**: Copy structure, replace ALL placeholders with script-specific content
+- **During Refactoring**: Update ONLY if template shows outdated patterns
+
+**Not For**: Documenting the TXO Template project itself
+
+#### Project Documentation (root README.md)
+
+**Purpose**: Explains the TXO Python Template project itself
+
+**Content**: How to use the template, setup instructions, features
+
+**Updated By**:
+- **Refactoring workflow**: Update if template features changed
+- **Script Creating workflow**: User may replace if developing script in template repo
+
+**Key Distinction**:
+- Template examples: AI copies for generated scripts
+- Project README: Explains the template itself
 
 ### Consequences
 
@@ -1424,7 +1456,7 @@ Documentation: Only if user-facing changes
 
 ### Validation
 
-**For Script Creation**:
+**For Script Creating Workflow**:
 ```bash
 # Check documentation exists
 ls README.md in-depth-readme.md
@@ -1437,10 +1469,10 @@ grep -i "in-depth" README.md
 grep -i "README" in-depth-readme.md
 ```
 
-**For Framework Refactoring**:
+**For Refactoring Workflow**:
 ```bash
 # Check task tracking exists
-ls ai/to-do.md
+ls ai/TODO.md
 
 # Verify test coverage
 python -m pytest --cov=utils tests/
@@ -1462,7 +1494,7 @@ git diff ai/decided/
 
 ### Context
 
-TXO uses AI prompts for script generation and framework refactoring. These prompts are version-controlled documents that must be:
+TXO uses AI prompts for Script Creating and Refactoring workflows. These prompts are version-controlled documents that must be:
 - Effective for AI consumption (Claude and future models)
 - Readable and maintainable by humans
 - Easy to review in git diffs
@@ -1637,7 +1669,7 @@ Pure XML prompts are difficult for humans to read and edit, while providing no p
 - Added ADR-B016: Human-Friendly AI Prompts (markdown+XML hybrid mandatory)
 - Enhanced ADR-B004: Validation timing strategy (early vs late vs hybrid)
 - Documented documentation hierarchy (User > Maintainer > Internal)
-- Made ai/to-do.md mandatory for framework refactoring
+- Made ai/TODO.md mandatory for Refactoring workflow
 - Added validation decision matrix for file types and sizes
 - Documented fail-fast vs performance trade-offs
 - Aligned with v3.2 refactoring efforts
