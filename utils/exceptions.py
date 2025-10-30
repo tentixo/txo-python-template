@@ -290,6 +290,58 @@ class FileOperationError(TxoBaseError):
         self.operation = operation
 
 
+# Logger exceptions
+
+class LoggerConfigurationError(ConfigurationError):
+    """
+    Raised when logger configuration is missing or invalid.
+
+    This includes missing configuration files, invalid JSON,
+    missing required sections, or incorrect structure.
+    """
+
+    def __init__(self, message: str,
+                 config_file: Optional[str] = None,
+                 **kwargs):
+        """
+        Initialize logger configuration error.
+
+        Args:
+            message: Error message
+            config_file: Configuration file that caused the error
+        """
+        if config_file:
+            message = f"{message} (file: {config_file})"
+        super().__init__(message, **kwargs)
+        self.config_file = config_file
+
+
+class LoggerSecurityError(TxoBaseError):
+    """
+    Raised when security patterns cannot be loaded or applied.
+
+    This is a security-critical error indicating that log redaction
+    patterns are unavailable, which could lead to sensitive data leaks.
+    """
+
+    def __init__(self, message: str,
+                 pattern_file: Optional[str] = None,
+                 **kwargs):
+        """
+        Initialize logger security error.
+
+        Args:
+            message: Error message
+            pattern_file: Pattern file that caused the error
+        """
+        if pattern_file:
+            message = f"SECURITY: {message} (file: {pattern_file})"
+        else:
+            message = f"SECURITY: {message}"
+        super().__init__(message, **kwargs)
+        self.pattern_file = pattern_file
+
+
 # Helpful error with instructions
 
 class HelpfulError(TxoBaseError):

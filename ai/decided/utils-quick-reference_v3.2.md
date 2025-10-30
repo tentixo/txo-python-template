@@ -69,7 +69,7 @@ data_handler = TxoDataHandler()
 
 # Universal save - auto-detects format from data type + extension
 data_handler.save(dict_data, Dir.OUTPUT, "report.json") -> Path  # JSON
-data_handler.save(dataframe, Dir.OUTPUT, "data.xlsx") -> Path  # Excel single sheet "Data"
+data_handler.save(dataframe, Dir.OUTPUT, "data.xlsx") -> Path  # Excel single sheet "Sheet1"
 data_handler.save(dataframe, Dir.OUTPUT, "data.csv") -> Path  # CSV
 data_handler.save("text", Dir.OUTPUT, "log.txt") -> Path  # Text
 
@@ -454,7 +454,7 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 
 - Added multi-sheet Excel support with dict of DataFrames auto-detection
 - Enhanced smart format validation for Excel multi-sheet patterns
-- Single DataFrame auto-names sheet as "Data" for consistency
+- Single DataFrame auto-names sheet as "Sheet1" (DEFAULT_SHEET_NAME constant)
 
 ### v3.1
 

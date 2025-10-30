@@ -249,13 +249,92 @@ class HelpfulError(TxoBaseError):
 - **FileOperationError**: File I/O problems
 - **HelpfulError**: User-friendly errors with solutions
 
+### Anti-Pattern: Third-Party Object Mutation
+
+**NEVER mutate internal attributes of third-party objects** (especially attributes starting with `_`).
+
+Mutating internal state of objects from external libraries violates encapsulation, creates fragile code, and breaks object contracts.
+
+#### ❌ WRONG - Mutating Third-Party Object:
+
+```python
+# utils/rest_api_helpers.py (VIOLATION)
+def _execute_request(self, method: str, url: str, **kwargs):
+    # ... async operation handling ...
+    result = self._handle_async_operation(response, context)
+
+    # ❌ WRONG: Mutating internal state of requests.Response object
+    response._content = json.dumps(result).encode('utf-8')
+    response.status_code = 200  # Changing object state directly
+
+    return response
+```
+
+**Problems:**
+- Violates encapsulation (internal attributes are private for a reason)
+- Fragile - library updates could break this
+- Breaks object invariants (response may have internal consistency checks)
+- Harder to test and debug
+- Type checkers won't catch issues
+
+#### ✅ CORRECT - Create Wrapper Object:
+
+```python
+# utils/rest_api_helpers.py (CORRECT)
+@dataclass
+class AsyncOperationResult:
+    """Wrapper for completed async operations."""
+    data: Dict[str, Any]
+    status_code: int = 200
+    original_response: Optional[requests.Response] = None
+
+    def json(self) -> Dict[str, Any]:
+        """Return data payload - compatible with Response.json()."""
+        return self.data
+
+    @property
+    def ok(self) -> bool:
+        """Check if operation was successful."""
+        return 200 <= self.status_code < 300
+
+    @property
+    def content(self) -> bytes:
+        """Return content as bytes - compatible with Response.content."""
+        return json.dumps(self.data).encode('utf-8') if self.data else b''
+
+
+def _execute_request(self, method: str, url: str, **kwargs):
+    # ... async operation handling ...
+    if response.status_code == 202:  # Async operation
+        result = self._handle_async_operation(response, context)
+
+        # ✅ CORRECT: Return wrapper instead of mutating response
+        return AsyncOperationResult(
+            data=result,
+            status_code=200,
+            original_response=response
+        )
+
+    return response  # Return original for synchronous operations
+```
+
+**Benefits:**
+- Type-safe and explicit
+- No violation of encapsulation
+- Library updates won't break this
+- Clear interface and purpose
+- Fully testable
+- Compatible with existing code (provides .json(), .ok, .content)
+
 ### Consequences
 
 - Positive: Precise error handling and recovery
 - Positive: Better debugging with context
 - Positive: User-friendly error messages for common problems
+- Positive: No third-party object mutation (type-safe, maintainable)
 - Negative: More exception classes to maintain
-- Mitigation: Clear hierarchy documentation, consistent patterns
+- Negative: Wrapper objects add some complexity
+- Mitigation: Clear hierarchy documentation, consistent patterns, reusable wrapper classes
 
 ---
 
@@ -706,6 +785,465 @@ def _process_response(self, response: requests.Response) -> Any:
 
 ---
 
+## ADR-T011: Memory Optimization Strategy
+
+**Status:** RECOMMENDED
+**Date:** 2025-10-29
+
+### Context
+
+TXO creates many instances of data containers (paths, configs, API objects). Python's `__slots__` can reduce memory usage by ~40% and improve attribute access speed by 15-20%, but it conflicts with dataclass default values and reduces flexibility. The codebase currently has inconsistent `__slots__` usage, with several files having comments like "Removed __slots__ because it conflicts with default values."
+
+### Decision
+
+Use `__slots__` optimization selectively based on object volume and use case. Balance memory efficiency with developer productivity.
+
+### When to Use __slots__
+
+**✅ USE __slots__ for:**
+- High-volume objects (>1000 instances expected)
+- Network request/response objects
+- Cache entries and frequently created containers
+- Objects in tight loops or performance-critical paths
+- Immutable data containers with known attributes
+
+**❌ AVOID __slots__ for:**
+- Configuration objects (low volume, created once)
+- One-off result containers
+- Objects requiring dynamic attributes
+- Classes with complex inheritance
+- Classes prioritizing readability and flexibility
+- Dataclasses needing default field values
+
+### Implementation Patterns
+
+#### Pattern 1: __slots__ with Manual __init__ (High-Volume Objects)
+
+```python
+# ✅ CORRECT - For high-volume, performance-critical classes
+class CircuitBreaker:
+    """Circuit breaker with memory optimization."""
+    __slots__ = ['failure_threshold', 'timeout', '_failures', '_last_failure', '_state']
+
+    def __init__(self, failure_threshold: int = 5, timeout: int = 60):
+        self.failure_threshold = failure_threshold
+        self.timeout = timeout
+        self._failures = 0
+        self._last_failure = 0.0
+        self._state = "closed"
+
+
+# ✅ CORRECT - Frozen dataclass with __slots__ (no defaults)
+@dataclass(frozen=True)
+class ProjectPaths:
+    """Immutable path container with memory optimization."""
+    __slots__ = ['root', 'config', 'data', 'logs', 'output']
+
+    root: Path
+    config: Path
+    data: Path
+    logs: Path
+    output: Path
+```
+
+#### Pattern 2: Dataclass Without __slots__ (Flexibility Priority)
+
+```python
+# ✅ CORRECT - Configuration objects with defaults
+@dataclass
+class ErrorContext:
+    """Error context with flexible default values."""
+    # NOTE: No __slots__ - prioritizes flexibility over memory
+    operation: Optional[str] = None
+    resource: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+
+# ✅ CORRECT - Result containers with complex defaults
+@dataclass
+class ProcessingResults:
+    """Processing results with default field factories."""
+    # NOTE: No __slots__ - dataclass defaults needed
+    created: List[str] = field(default_factory=list)
+    updated: List[str] = field(default_factory=list)
+    failed: List[str] = field(default_factory=list)
+    expected_errors: int = 0
+```
+
+### Decision Matrix
+
+Use this matrix to decide on `__slots__` usage:
+
+| Criteria | Use __slots__ | Skip __slots__ |
+|----------|---------------|----------------|
+| **Instance Count** | >1000 instances | <100 instances |
+| **Creation Frequency** | Tight loops, high-frequency | One-time setup |
+| **Attribute Flexibility** | Fixed attributes known | May need dynamic attrs |
+| **Default Values** | Can use manual __init__ | Need dataclass defaults |
+| **Inheritance** | Simple or no inheritance | Complex inheritance |
+| **Memory Constraints** | Memory-sensitive application | Memory not a concern |
+
+### Examples from TXO Codebase
+
+#### Using __slots__:
+- `ProjectPaths` (path_helpers.py) - Created once, immutable, no defaults
+- `CircuitBreaker` (api_common.py) - High-frequency state tracking
+- `ConfigLoader` (config_loader.py) - Memory efficiency for cached loaders
+
+#### Not Using __slots__:
+- `ErrorContext` (exceptions.py) - Low volume, needs defaults
+- `UrlBuilder` (url_helpers.py) - Flexibility more important
+- `AsyncOperationResult` (rest_api_helpers.py) - Result container with defaults
+- `ProcessingResults` (concurrency.py) - Needs default_factory fields
+- `TokenCacheEntry` (oauth_helpers.py) - Needs default field values
+
+### Migration Strategy
+
+When refactoring existing classes:
+
+1. **Assess volume**: How many instances will be created?
+2. **Check defaults**: Does it use dataclass default values?
+3. **Evaluate flexibility**: Does it need dynamic attributes?
+4. **Make decision**: Apply matrix above
+5. **Document choice**: Add comment explaining decision
+
+```python
+# Example comment for classes without __slots__
+@dataclass
+class MyClass:
+    # NOTE: No __slots__ - low volume configuration object,
+    # prioritizes flexibility and default values over memory
+    field1: str = "default"
+    field2: Optional[int] = None
+```
+
+### Performance Impact
+
+Based on Python benchmarks and TXO codebase analysis:
+
+**With __slots__:**
+- Memory usage: ~40% reduction per instance
+- Attribute access: 15-20% faster
+- Object creation: 5-10% faster
+
+**Trade-offs:**
+- Cannot add attributes dynamically
+- Slightly more verbose with manual __init__
+- Incompatible with dataclass default field values
+
+### Consequences
+
+**Positive:**
+- Clear guidelines for when to optimize
+- Balances performance and developer productivity
+- Allows case-by-case decisions based on use case
+- Documented rationale for each pattern
+
+**Negative:**
+- Mixed approaches across codebase (intentional)
+- Developers must understand when to use each pattern
+- Requires judgment calls on borderline cases
+
+**Mitigation:**
+- Clear decision matrix provided above
+- Examples from actual TXO codebase
+- Document reasoning in comments
+- Review during code reviews
+
+---
+
+## ADR-T012: Library vs Application Code Boundaries
+
+**Status:** MANDATORY
+**Date:** 2025-10-29
+
+### Context
+
+TXO codebase has library code (utils/) and application code (src/, scripts). Library code calling sys.exit() makes testing impossible, violates separation of concerns, and prevents reusability. Found 10 violations in utils/logger.py where library code calls sys.exit(1) directly.
+
+### Decision
+
+Establish clear boundaries between library and application code with explicit rules for error handling and program termination.
+
+### Library Code Rules (utils/)
+
+**NEVER allowed in library code:**
+- ❌ `sys.exit()` calls
+- ❌ Unhandled program termination
+- ❌ Direct control of application lifecycle
+
+**ALWAYS required in library code:**
+- ✅ Raise exceptions for all error conditions
+- ✅ Use structured exception hierarchy (ADR-T004)
+- ✅ Provide detailed error context
+- ✅ Let calling code decide termination strategy
+
+### Application Code Rules (src/, entry points)
+
+**Allowed in application code:**
+- ✅ `sys.exit()` to terminate with appropriate exit codes
+- ✅ Top-level exception handling
+- ✅ User interaction and prompts
+- ✅ Application lifecycle management
+
+### Boundary Definition
+
+**Entry Point Functions** are the boundary between library and application:
+
+```python
+# Entry point functions (utils/script_runner.py)
+def parse_args_and_load_config(description: str, require_token: bool = False):
+    """
+    Entry point function - MAY call sys.exit() as it's the application boundary.
+    """
+    try:
+        # Load configuration (library function - raises exceptions)
+        config = config_loader.load_config()
+    except ConfigurationError as e:
+        logger.error(f"Configuration error: {e}")
+        sys.exit(1)  # ✅ Acceptable - entry point function
+
+    return config
+```
+
+### Implementation Examples
+
+#### ❌ WRONG - Library Code Calling sys.exit():
+
+```python
+# utils/logger.py (VIOLATION)
+class TxoLogger:
+    def __init__(self):
+        config_path = Path("config/logging-config.json")
+        if not config_path.exists():
+            print(f"ERROR: {config_path} not found", file=sys.stderr)
+            sys.exit(1)  # ❌ Library code should raise exception
+```
+
+#### ✅ CORRECT - Library Code Raising Exceptions:
+
+```python
+# utils/logger.py (CORRECT)
+from utils.exceptions import LoggerConfigurationError
+
+class TxoLogger:
+    def __init__(self):
+        config_path = Path("config/logging-config.json")
+        if not config_path.exists():
+            raise LoggerConfigurationError(
+                what_went_wrong=f"Logging configuration not found: {config_path}",
+                how_to_fix="Copy config/logging-config_example.json to config/logging-config.json",
+                example="cp config/logging-config_example.json config/logging-config.json"
+            )  # ✅ Raises exception for caller to handle
+```
+
+#### ✅ CORRECT - Application Code Handling Exceptions:
+
+```python
+# src/my_script.py (APPLICATION CODE)
+from utils.logger import setup_logger
+from utils.exceptions import LoggerConfigurationError, LoggerSecurityError
+
+def main():
+    """Application entry point - handles exceptions and controls exit."""
+    try:
+        logger = setup_logger()
+    except (LoggerConfigurationError, LoggerSecurityError) as e:
+        print(f"Failed to initialize logger: {e}", file=sys.stderr)
+        sys.exit(1)  # ✅ Application code decides to exit
+
+    # Rest of application logic
+    logger.info("Application started successfully")
+
+if __name__ == "__main__":
+    main()
+```
+
+#### ✅ CORRECT - Entry Point Functions (Boundary Code):
+
+```python
+# utils/script_runner.py
+def parse_args_and_load_config(description: str, require_token: bool = False):
+    """
+    Entry point function serving as application boundary.
+    MAY call sys.exit() as it bridges library and application.
+    """
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument("org_id", help="Organization ID")
+    parser.add_argument("env_type", help="Environment type")
+
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        # argparse calls sys.exit() - this is acceptable boundary behavior
+        raise
+
+    try:
+        config = load_configuration(args.org_id, args.env_type)
+    except ConfigurationError as e:
+        logger.error(f"Configuration error: {e}")
+        sys.exit(1)  # ✅ Entry point may exit - it's the boundary
+
+    return config
+```
+
+### Testing Implications
+
+**Without this pattern (library code calling sys.exit):**
+```python
+# ❌ IMPOSSIBLE TO TEST
+def test_logger_missing_config():
+    # Can't test this - sys.exit() terminates test runner
+    with pytest.raises(SystemExit):  # Kills the test runner!
+        logger = TxoLogger()  # sys.exit(1) called internally
+```
+
+**With this pattern (library code raising exceptions):**
+```python
+# ✅ TESTABLE
+def test_logger_missing_config():
+    # Clean test - exception can be caught and verified
+    with pytest.raises(LoggerConfigurationError) as exc_info:
+        logger = TxoLogger()
+
+    assert "logging-config.json" in str(exc_info.value)
+    assert "how_to_fix" in exc_info.value.__dict__
+```
+
+### Exit Code Standards
+
+When application code does call `sys.exit()`, use standard exit codes:
+
+- `0` - Success
+- `1` - General error
+- `2` - Misconfiguration / invalid arguments
+- `3` - Runtime error / operation failed
+- `130` - Terminated by Ctrl+C (SIGINT)
+
+```python
+# ✅ Application code with appropriate exit codes
+try:
+    config = parse_args_and_load_config("My Script")
+except ConfigurationError:
+    sys.exit(2)  # Configuration error
+
+try:
+    result = process_data(config)
+except OperationError:
+    sys.exit(3)  # Runtime error
+
+sys.exit(0)  # Success
+```
+
+### Validation
+
+To verify compliance:
+
+```bash
+# Check for sys.exit() in library code (should return nothing)
+grep -r "sys\.exit" utils/*.py
+
+# Acceptable findings:
+# - None in utils/*.py (library code)
+# - May appear in utils/script_runner.py entry point functions
+# - May appear in src/*.py (application code)
+```
+
+### Migration from Existing Code
+
+**For library modules currently using sys.exit():**
+
+1. Create appropriate exception class if not exists
+2. Replace `sys.exit(1)` with `raise ExceptionName(message)`
+3. Update docstring with `Raises:` section
+4. Update all callers to handle the exception
+5. Add unit tests for error paths
+
+**Example migration:**
+
+```python
+# BEFORE
+def load_config():
+    if not config_file.exists():
+        print(f"ERROR: Config not found", file=sys.stderr)
+        sys.exit(1)
+
+# AFTER
+def load_config():
+    """
+    Load configuration file.
+
+    Raises:
+        ConfigurationError: If configuration file not found
+    """
+    if not config_file.exists():
+        raise ConfigurationError(
+            what_went_wrong="Configuration file not found",
+            how_to_fix="Create configuration file from template"
+        )
+```
+
+### Infrastructure Exception: Logger Initialization
+
+**Logger is a special case** - it exists at Layer 2 (Core Services) and is imported by all higher layers (3-6). Unlike other library code, logger initialization happens at module import time, not runtime.
+
+**Infrastructure Exception Rules**:
+
+**setup_logger() function MAY call sys.exit() when:**
+- Default behavior (strict=False)
+- Logger configuration is missing or invalid
+- Application cannot continue safely (no logging, no security redaction)
+
+**This is the ONLY acceptable sys.exit() in utils/ library code.**
+
+**Why This Exception**:
+1. **Import-time initialization**: Logger imported at module level in all utils/
+2. **Layer 2 dependency**: Layers 3-6 all depend on logger
+3. **Cannot continue safely**: No logging = no audit trail, no security redaction
+4. **Avoids boilerplate**: Without this, ALL modules need try/except (DRY violation)
+5. **Infrastructure not library**: Logger is foundational infrastructure
+
+**Testability Preserved**:
+```python
+# For unit tests - strict mode raises exceptions
+logger = setup_logger(strict=True)  # Raises LoggerConfigurationError
+
+# Normal usage - exits on error
+logger = setup_logger()  # Exits if config missing (infrastructure failure)
+```
+
+**Architecture Rationale**:
+From module-dependency-diagram.md, logger is Layer 2 (Core Services):
+- Layer 3 (Data): load_n_save → logger
+- Layer 4 (API): rest_api_helpers, oauth_helpers → logger
+- Layer 5 (Orchestration): script_runner, api_factory → logger
+- Layer 6 (User): src/*.py → logger
+
+Forcing exception handling in every module (8+ files) violates DRY and creates excessive boilerplate. Infrastructure failure at Layer 2 justifies sys.exit().
+
+### Consequences
+
+**Positive:**
+- Clean code (one line everywhere: `logger = setup_logger()`)
+- Still testable (strict=True for unit tests)
+- DRY - one try/except in setup_logger(), not scattered
+- Works for all use cases (script_runner, direct utils imports, local scripts)
+- Honest about trade-offs (logger is infrastructure)
+- No verbose boilerplate in every script
+
+**Negative:**
+- setup_logger() calls sys.exit() by default (infrastructure exception to ADR-T012)
+- print() to stderr for infrastructure failures (pre-logger initialization)
+- Less pure from library code perspective
+
+**Mitigation:**
+- Clearly documented as infrastructure exception in ADR-T012
+- strict=True parameter available for testing needs
+- Single location for error handling (not scattered)
+- Module-level import pattern works cleanly across all layers
+
+---
+
 ## Summary
 
 These Technical Standards define **how we implement Python code at TXO** - our preferences for threading, memory
@@ -726,7 +1264,16 @@ These standards should evolve as Python evolves and as TXO's technical needs cha
 
 ## Version History
 
-### v3.1 (Current)
+### v3.2 (Current)
+
+- Added ADR-T011: Memory Optimization Strategy (__slots__ usage guidelines)
+- Added ADR-T012: Library vs Application Code Boundaries (explicit sys.exit() rules)
+- Enhanced ADR-T004: Added third-party object mutation anti-pattern
+- Formalized decision matrix for __slots__ usage
+- Documented patterns for high-volume vs flexibility-priority classes
+- Clarified library code boundaries and testing implications
+
+### v3.1
 
 - Added thread safety patterns and custom exception hierarchy
 - Enhanced memory optimization and lazy loading standards
@@ -738,7 +1285,7 @@ These standards should evolve as Python evolves and as TXO's technical needs cha
 
 ---
 
-**Version:** v3.1  
-**Last Updated:** 2025-01-25  
+**Version:** v3.2
+**Last Updated:** 2025-10-29
 **Domain:** TXO Technical Standards
 **Purpose:** Python implementation patterns and best practices

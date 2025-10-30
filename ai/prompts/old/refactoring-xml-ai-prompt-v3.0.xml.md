@@ -1,40 +1,89 @@
-# Refactoring prompt for TXO v3.0
+# Refactoring Prompt for TXO Framework v3.2
 
 ```xml
 
 <?xml version="1.0" encoding="UTF-8"?>
-<txo_v3_refactoring_assistant version="3.0">
+<txo_v3.2_refactoring_assistant version="3.2">
     <metadata>
-        <purpose>Guide AI assistants through TXO v2.1 to v3.0 refactoring</purpose>
-        <last_updated>2025-01-15</last_updated>
-        <estimated_effort>40-60 hours</estimated_effort>
-        <breaking_changes>true</breaking_changes>
+        <purpose>Guide AI assistants through TXO utils/ framework refactoring and improvement</purpose>
+        <last_updated>2025-10-29</last_updated>
+        <estimated_effort>20-60 hours (depends on scope)</estimated_effort>
+        <audience>Experienced coders, framework maintainers</audience>
+        <breaking_changes>possible (evaluate per refactoring)</breaking_changes>
+        <workflow_type>framework-refactoring</workflow_type>
     </metadata>
+
+    <phase_0_pre_assessment>
+        <title>Phase 0: Context Gathering and Assessment (MANDATORY)</title>
+
+        <instruction priority="critical">
+            BEFORE starting ANY refactoring work:
+            1. Read module-dependency-diagram.md (understand layer architecture)
+            2. Read ai/decided/txo-business-adr_v3.2.md (business rules)
+            3. Read ai/decided/txo-technical-standards_v3.2.md (technical patterns, ADR-T011, ADR-T012)
+            4. Read ai/decided/utils-quick-reference_v3.2.md (existing functions)
+            5. Read CLAUDE.md (development workflow and commands)
+            6. Review code_inspection/ directory (PyCharm results if available)
+        </instruction>
+
+        <user_preparation>
+            Request user to prepare BEFORE starting:
+            1. Run PyCharm "Code → Inspect Code" on whole project
+            2. Export inspection results to code_inspection/ as XML
+            3. Identify specific issues or goals for refactoring
+            4. Have refactor plan ready (ai/reports/refactor_v*.md) if exists
+        </user_preparation>
+
+        <ai_assessment_mandatory>
+            AI MUST generate comprehensive assessment:
+            1. Analyze all utils/*.py files for ADR violations
+            2. Check PyCharm inspection results (if provided)
+            3. Identify patterns not matching ADRs
+            4. Review module-dependency-diagram.md for architecture issues
+            5. CREATE ai/to-do.md with all issues (MANDATORY per ADR-B015)
+            6. Estimate effort and identify breaking changes
+            7. Present assessment to user for approval before starting
+        </ai_assessment_mandatory>
+
+        <critical_architecture_understanding>
+            From module-dependency-diagram.md:
+            - Layer 1 (Foundation): exceptions, path_helpers (no dependencies)
+            - Layer 2 (Core): logger, api_common (import Layer 1)
+            - Layer 3-6: All import logger (Layer 2 dependency)
+
+            CRITICAL: Logger is infrastructure (Layer 2).
+            Changes to logger affect ALL higher layers.
+            Infrastructure exception: setup_logger() may call sys.exit() (ADR-T012).
+        </critical_architecture_understanding>
+    </phase_0_pre_assessment>
 
     <ai_instructions>
         <instruction priority="critical">
-            When user asks about v3.0 refactoring, FIRST assess current state:
-            1. Request all utils/*.py files
-            2. Check for soft-fail patterns (config.get)
-            3. Look for sys.exit() calls
-            4. Identify global state variables
-            5. Find methods over 100 lines
-            6. Generate assessment report
+            Track ALL changes in ai/to-do.md (MANDATORY per ADR-B015):
+            - Task status: pending/in-progress/completed
+            - File and line numbers
+            - Validation criteria
+            - Update after each task completion
         </instruction>
 
         <instruction priority="critical">
-            ENFORCE these principles strictly:
-            - NO soft-fail on configuration (config.get → config[])
-            - NO sys.exit() in library code (raise exceptions)
-            - NO global mutable state (except logging)
-            - NO methods over 50 lines (split them)
+            ENFORCE v3.2 principles strictly:
+            - NO soft-fail on required configuration (config.get → config[])
+            - NO sys.exit() in library code EXCEPT setup_logger() (infrastructure exception)
+            - NO third-party object mutation (use wrappers like AsyncOperationResult)
+            - NO methods over 100 lines (target <50, max 100)
+            - NO broad exception catches (be specific: JSONDecodeError, KeyError, etc.)
             - ALWAYS use HelpfulError for user-facing errors
+            - MAKE helper methods @staticmethod if they don't use self
         </instruction>
 
         <instruction priority="high">
-            Track all changes in a table:
-            | File | Issue | Fix | Status | Breaking |
-            Update after each file modification
+            v3.2 NEW PATTERNS to implement:
+            - Logger strict mode: setup_logger(strict=False) for normal, strict=True for tests
+            - AsyncOperationResult wrapper for 202 Accepted responses
+            - CircuitBreaker with .stats property and state transition logging
+            - Adaptive rate limiting based on API response headers
+            - Specific exception handling (no broad catches)
         </instruction>
     </ai_instructions>
 
@@ -545,23 +594,68 @@
         </breaking_change>
     </migration_guide>
 
-    <success_criteria>
-        <criterion>Zero .get() calls on config dictionaries</criterion>
-        <criterion>Zero sys.exit() in utils/ directory</criterion>
-        <criterion>All methods under 50 lines (goal)</criterion>
-        <criterion>No global mutable state except logger</criterion>
-        <criterion>All existing scripts still functional</criterion>
-        <criterion>Performance equal or better than v2.1</criterion>
-        <criterion>Memory usage stable under load</criterion>
-    </success_criteria>
+    <success_discussion_approach>
+        <philosophy>Soft success criteria - discussion over checklists</philosophy>
+
+        <after_refactoring_ai_should>
+            1. Summarize what was achieved (stats, files changed, violations fixed)
+            2. Highlight trade-offs made (e.g., logger infrastructure exception)
+            3. Ask: "Does this align with your goals?"
+            4. Suggest: "Areas for future improvement?"
+            5. Discuss: "Any concerns about the changes?"
+            6. Present: ADR compliance report
+        </after_refactoring_ai_should>
+
+        <not_hard_metrics>
+            AVOID: Rigid pass/fail checklists
+            PREFER: Collaborative review and discussion
+            REASON: Refactoring is contextual, trade-offs are necessary
+        </not_hard_metrics>
+
+        <discussion_points>
+            <point>ADR compliance (are we 100% or close enough?)</point>
+            <point>Breaking changes (acceptable for value gained?)</point>
+            <point>Test coverage (adequate for confidence?)</point>
+            <point>Code complexity (methods readable and maintainable?)</point>
+            <point>Performance (any regressions observed?)</point>
+            <point>Architecture (improvements aligned with module layers?)</point>
+        </discussion_points>
+    </success_discussion_approach>
+
+    <validation_commands>
+        <command>
+            # Syntax validation
+            python -m py_compile utils/*.py
+        </command>
+        <command>
+            # ADR compliance check
+            grep -r "sys\.exit" utils/*.py  # Should only find setup_logger()
+            grep -r "config\.get(" utils/*.py  # Check each for optional vs required
+        </command>
+        <command>
+            # Test execution
+            python tests/test_*.py  # All new tests should pass
+        </command>
+        <command>
+            # Functional verification
+            python -m src.try_me_script demo test  # Main script should work
+        </command>
+    </validation_commands>
 
     <rollback_plan>
-        <step>Git tag v2.1.0 before starting</step>
-        <step>Create utils_v2_backup/ directory</step>
-        <step>Test each phase independently</step>
-        <step>Keep deprecated functions for compatibility</step>
-        <step>Document all breaking changes</step>
-        <step>If issues: git checkout v2.1.0</step>
+        <step>Git tag before starting (git tag v3.1-backup)</step>
+        <step>Create branch for work (git checkout -b refactor-v3.2)</step>
+        <step>Commit frequently with clear messages</step>
+        <step>Test each phase independently before proceeding</step>
+        <step>Keep ai/to-do.md updated (enables resume)</step>
+        <step>If issues: git checkout main OR git revert specific commits</step>
     </rollback_plan>
-</txo_v3_refactoring_assistant>
+
+    <reference_documents>
+        <actual_refactoring_experience>
+            See ai/reports/refactor_v3.2.md and our actual v3.2 refactoring
+            for real-world example of this process succeeding.
+        </actual_refactoring_experience>
+    </reference_documents>
+</txo_v3.2_refactoring_assistant>
 ```
