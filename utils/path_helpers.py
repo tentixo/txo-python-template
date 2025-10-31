@@ -19,6 +19,9 @@ from dataclasses import dataclass
 from typing import Optional, Set, List, Tuple, Union, Dict, Literal
 from datetime import datetime, timedelta
 
+# Avoid circular import - logger imports path_helpers
+# Use lazy import for logging in functions if needed
+
 # Type-safe category literal for IDE support
 CategoryType = Literal[
     'config', 'data', 'files', 'generated_payloads',
@@ -343,13 +346,28 @@ def cleanup_old_files(category: CategoryType, days: int = 30,
         if file_path.is_file():
             file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
             if file_mtime < cutoff_time:
-                deleted_files.append(file_path)
                 if not dry_run:
                     try:
                         file_path.unlink()
+                        deleted_files.append(file_path)
+                    except PermissionError as e:
+                        # Lazy import to avoid circular dependency
+                        from utils.logger import setup_logger
+                        logger_instance = setup_logger()
+                        logger_instance.error(f"Permission denied deleting {file_path}: {e}")
+                        # Don't add to deleted list, continue with other files
+                    except FileNotFoundError:
+                        # File was already deleted (race condition) - that's fine
+                        deleted_files.append(file_path)  # Count as deleted
                     except OSError as e:
-                        # Continue processing other files
-                        pass
+                        # Lazy import to avoid circular dependency
+                        from utils.logger import setup_logger
+                        logger_instance = setup_logger()
+                        logger_instance.warning(f"Could not delete {file_path}: {e}")
+                        # Don't add to deleted list, continue with other files
+                else:
+                    # Dry run - just track what would be deleted
+                    deleted_files.append(file_path)
 
     return deleted_files
 
@@ -379,12 +397,25 @@ def cleanup_tmp(max_age_hours: int = 24) -> int:
             if item_mtime < cutoff_time:
                 if item.is_file():
                     item.unlink()
+                    deleted_count += 1
                 elif item.is_dir():
                     shutil.rmtree(item)
-                deleted_count += 1
-        except OSError as e:
+                    deleted_count += 1
+        except PermissionError as e:
+            # Lazy import to avoid circular dependency
+            from utils.logger import setup_logger
+            logger_instance = setup_logger()
+            logger_instance.error(f"Permission denied deleting {item}: {e}")
             # Continue with other items
+        except FileNotFoundError:
+            # File/dir was already deleted (race condition) - that's fine, continue
             pass
+        except OSError as e:
+            # Lazy import to avoid circular dependency
+            from utils.logger import setup_logger
+            logger_instance = setup_logger()
+            logger_instance.warning(f"Could not delete {item}: {e}")
+            # Continue with other items
 
     return deleted_count
 

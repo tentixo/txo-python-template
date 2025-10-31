@@ -306,13 +306,20 @@ class OAuthClient:
                 return token_info
 
             else:
-                # Handle error response
+                # Handle error response with specific exception handling
                 error_msg = f"Token request failed with status {response.status_code}"
                 try:
                     error_data = response.json()
                     error_msg = f"{error_msg}: {error_data.get('error_description', error_data.get('error', 'Unknown error'))}"
-                except (json.JSONDecodeError, ValueError, AttributeError):  # Specific exceptions
-                    error_msg = f"{error_msg}: {response.text[:200]}"
+                except json.JSONDecodeError as e:
+                    # Response is not valid JSON - likely HTML error page or malformed response
+                    error_msg = f"{error_msg}: Invalid JSON response - {e}. Raw response: {response.text[:200]}"
+                except KeyError as e:
+                    # Missing expected field in JSON response
+                    error_msg = f"{error_msg}: Missing expected field in response - {e}. Response: {response.text[:200]}"
+                except (ValueError, AttributeError) as e:
+                    # Unexpected response format or attribute access error
+                    error_msg = f"{error_msg}: Unexpected response format - {e}. Response: {response.text[:200]}"
 
                 logger.error(error_msg)
                 raise ApiAuthenticationError(error_msg)
@@ -327,8 +334,8 @@ class OAuthClient:
             logger.error(f"Invalid token response, missing field: {e}")
             raise ApiAuthenticationError(f"Invalid token response, missing: {e}")
 
-    def revoke_token(self, token: str, client_id: str,
-                     client_secret: str, tenant_id: Optional[str] = None) -> bool:
+    def revoke_token(self, _token: str, client_id: str,
+                     _client_secret: str, tenant_id: Optional[str] = None) -> bool:
         """
         Revoke an access or refresh token.
 
@@ -336,17 +343,19 @@ class OAuthClient:
         This method clears the token from cache instead.
 
         Args:
-            token: Token to revoke (not used but kept for API compatibility)
+            _token: Token to revoke (not used, kept for API compatibility)
             client_id: Application (client) ID
-            client_secret: Client secret (not used but kept for API compatibility)
+            _client_secret: Client secret (not used, kept for API compatibility)
             tenant_id: Azure tenant ID
 
         Returns:
             True if revocation succeeded (cache cleared)
+
+        Note:
+            Parameters prefixed with underscore are intentionally unused but
+            maintained for API compatibility with OAuth standards.
         """
-        # Mark parameters as intentionally unused for API compatibility
-        _ = token  # Unused - Microsoft doesn't support token revocation
-        _ = client_secret  # Unused - kept for API consistency
+        # No need for _ = token assignments - underscore prefix indicates unused
 
         tenant = tenant_id or self.tenant_id
         if not tenant:

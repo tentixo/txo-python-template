@@ -15,7 +15,7 @@ import time
 import threading
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 from urllib.parse import quote
 
 import requests
@@ -59,6 +59,81 @@ class RestOperationResult:
     message: str
     status_code: int = 0
     raw_result: Any = None
+
+
+@dataclass
+class AsyncOperationResult:
+    """
+    Wrapper for completed async operations (202 Accepted).
+
+    Provides a Response-compatible interface without mutating internal
+    state of third-party objects. This class wraps the result of polling
+    an async operation to completion.
+
+    Attributes:
+        data: The result data from the async operation
+        status_code: HTTP status code (200 for completed operation)
+        original_response: The original 202 response that triggered polling
+
+    Example:
+        > # For async operations (202 Accepted)
+        > result = api.post(url, json=payload)
+        > if isinstance(result, AsyncOperationResult):
+        >     data = result.json()  # Get the completed operation data
+        > else:
+        >     data = result.json()  # Regular synchronous response
+    """
+    # NOTE: No __slots__ - prioritizes flexibility and default values over memory
+
+    data: Dict[str, Any]
+    status_code: int = 200
+    original_response: Optional[requests.Response] = None
+
+    def json(self) -> Dict[str, Any]:
+        """
+        Return data payload - compatible with Response.json().
+
+        Returns:
+            Dictionary containing the async operation result
+        """
+        return self.data
+
+    @property
+    def ok(self) -> bool:
+        """
+        Check if operation was successful - compatible with Response.ok.
+
+        Returns:
+            True if status code indicates success (200-299)
+        """
+        return 200 <= self.status_code < 300
+
+    @property
+    def content(self) -> bytes:
+        """
+        Return content as bytes - compatible with Response.content.
+
+        Returns:
+            JSON-encoded data as bytes
+        """
+        # Always encode - empty dict {} becomes b'{}', not b''
+        # This matches how requests.Response handles JSON content
+        return json.dumps(self.data).encode('utf-8')
+
+    @property
+    def text(self) -> str:
+        """
+        Return content as string - compatible with Response.text.
+
+        Returns:
+            JSON-encoded data as string
+        """
+        # Always encode - empty dict {} becomes '{}', not ''
+        return json.dumps(self.data)
+
+    def __repr__(self) -> str:
+        """String representation for debugging."""
+        return f"AsyncOperationResult(status_code={self.status_code}, data_keys={list(self.data.keys()) if self.data else []})"
 
 
 class SessionManager:
@@ -393,11 +468,72 @@ class TxoRestAPI:
             f"Async operation timeout after {elapsed:.1f}s ({poll_count} polls)"
         )
 
+    def _handle_successful_response(self, response: requests.Response, context: str,
+                                    skip_async_check: bool) -> Union[requests.Response, AsyncOperationResult]:
+        """
+        Handle successful API response (2xx or 202).
+
+        Args:
+            response: HTTP response object
+            context: Request context for logging
+            skip_async_check: Whether to skip async operation handling
+
+        Returns:
+            Response object or AsyncOperationResult for completed async operations
+        """
+        # Record success in circuit breaker
+        if self.circuit_breaker:
+            self.circuit_breaker.record_success()
+
+        # Handle async operations (202 Accepted)
+        if response.status_code == 202 and not skip_async_check:
+            result = self._handle_async_operation(response, context)
+            return AsyncOperationResult(
+                data=result if result else {},
+                status_code=200,
+                original_response=response
+            )
+
+        return response
+
+    def _calculate_retry_delay(self, response: requests.Response, attempt: int,
+                               backoff_factor: float, context: str) -> float:
+        """
+        Calculate retry delay with exponential backoff and jitter.
+
+        Args:
+            response: HTTP response that triggered retry
+            attempt: Current attempt number (0-indexed)
+            backoff_factor: Exponential backoff factor
+            context: Request context for logging
+
+        Returns:
+            Delay in seconds (with jitter applied)
+        """
+        # Check for Retry-After header (takes precedence)
+        retry_after = response.headers.get('Retry-After')
+        if retry_after:
+            try:
+                delay = float(retry_after)
+                logger.warning(f"{context} Rate limited, waiting {delay}s (from Retry-After header)")
+                return delay  # No jitter for explicit Retry-After
+            except ValueError:
+                logger.debug(f"{context} Invalid Retry-After header: {retry_after}")
+
+        # Use exponential backoff
+        delay = backoff_factor ** attempt
+        jittered_delay = self.apply_jitter(delay)
+        logger.warning(f"{context} HTTP {response.status_code}, retrying in {jittered_delay:.1f}s")
+        return jittered_delay
+
     def _execute_request(self, method: str, url: str,
                          skip_async_check: bool = False,
-                         **kwargs) -> requests.Response:
+                         **kwargs) -> Union[requests.Response, AsyncOperationResult]:
         """
         Execute HTTP request with retry logic, rate limiting, and circuit breaker.
+
+        For async operations (202 Accepted), polls until completion and returns
+        an AsyncOperationResult wrapper with the completed operation data.
 
         Args:
             method: HTTP method
@@ -406,7 +542,9 @@ class TxoRestAPI:
             **kwargs: Additional request arguments
 
         Returns:
-            Response object
+            Response object for synchronous operations, or AsyncOperationResult
+            for completed async operations (202 Accepted). Both provide
+            compatible .json(), .ok, .content interfaces.
         """
 
         # Check circuit breaker
@@ -431,45 +569,29 @@ class TxoRestAPI:
 
                 response = self.session.request(method, url, **kwargs)
 
-                # UPDATE RATE LIMITS FROM HEADERS (ADD HERE)
+                # Update rate limits from response headers
                 if self.rate_limit_manager and response.headers:
                     self.rate_limit_manager.update_from_headers(url, dict(response.headers))
 
+                # Handle successful responses (2xx or 202)
                 if response.ok or response.status_code == 202:
-                    # Record success in circuit breaker
-                    if self.circuit_breaker:
-                        self.circuit_breaker.record_success()
+                    return self._handle_successful_response(response, context, skip_async_check)
 
-                    # Handle async operations
-                    if response.status_code == 202 and not skip_async_check:
-                        result = self._handle_async_operation(response, context)
-                        # Return the actual response with async result content
-                        response._content = json.dumps(result).encode('utf-8') if result else b''
-                        response.status_code = 200  # Update status to indicate completion
-                        return response
-
-                    return response
-
-                # Check if we should retry
+                # Check if we should retry (429, 5xx)
                 if response.status_code in [429, 500, 502, 503, 504]:
+                    # Update rate limits for 429 responses
                     if response.status_code == 429 and self.rate_limit_manager:
                         self.rate_limit_manager.update_from_headers(url, dict(response.headers))
-                    last_error = f"HTTP {response.status_code}"
-                    if attempt < max_retries - 1:
-                        retry_after = response.headers.get('Retry-After')
-                        if retry_after:
-                            delay = float(retry_after)
-                            logger.warning(f"{context} Rate limited, waiting {delay}s")
-                        else:
-                            delay = backoff_factor ** attempt
 
-                        jittered_delay = self.apply_jitter(delay)
-                        logger.warning(f"{context} HTTP {response.status_code}, "
-                                       f"retrying in {jittered_delay:.1f}s")
-                        time.sleep(jittered_delay)
+                    last_error = f"HTTP {response.status_code}"
+
+                    # Retry if we have attempts left
+                    if attempt < max_retries - 1:
+                        delay = self._calculate_retry_delay(response, attempt, backoff_factor, context)
+                        time.sleep(delay)
                         continue
 
-                # Non-retryable error
+                # Non-retryable error or last attempt - raise immediately
                 self._handle_response_error(response, method)
 
             except requests.Timeout as e:

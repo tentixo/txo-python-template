@@ -17,7 +17,7 @@ import threading
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Union, Dict, Any, Optional, List, Literal
+from typing import Union, Dict, Any, Optional, List, Literal, Iterator
 
 from utils.logger import setup_logger
 from utils.path_helpers import CategoryType, get_path, format_size
@@ -26,7 +26,10 @@ from utils.exceptions import FileOperationError, ValidationError, ErrorContext
 # Hard-fail imports - TXO requires properly configured environment
 import pandas as pd
 import yaml
-import openpyxl  # Used by pandas for Excel operations (engine='openpyxl')
+# NOTE: openpyxl appears unused to PyCharm but IS required
+# Pandas imports it internally when we use engine='openpyxl' in df.to_excel()
+# This explicit import ensures it's installed (fail-fast) and documents the dependency
+import openpyxl  # Required for pandas Excel operations (engine='openpyxl')
 
 logger = setup_logger()
 
@@ -486,7 +489,7 @@ class TxoDataHandler:
                  encoding: Optional[str] = None,
                  usecols: Optional[List[str]] = None,
                  nrows: Optional[int] = None,
-                 chunksize: Optional[int] = None) -> Union['pd.DataFrame', Any]:
+                 chunksize: Optional[int] = None) -> Union['pd.DataFrame', Iterator['pd.DataFrame']]:
         """
         Load CSV file with memory-efficient options.
 
@@ -500,10 +503,19 @@ class TxoDataHandler:
             chunksize: Return iterator for processing large files in chunks
 
         Returns:
-            DataFrame or iterator if chunksize is specified
+            DataFrame if chunksize is None, or Iterator[DataFrame] if chunksize specified.
+            The iterator yields DataFrame chunks for memory-efficient processing.
 
         Raises:
             FileOperationError: If file cannot be read
+
+        Example:
+            > # Load entire file
+            > df = TxoDataHandler.load_csv(Dir.DATA, "data.csv")
+            >
+            > # Load in chunks for large files
+            > for chunk in TxoDataHandler.load_csv(Dir.DATA, "large.csv", chunksize=1000):
+            >     process_chunk(chunk)
         """
         # Direct import - hard-fail if not available
 

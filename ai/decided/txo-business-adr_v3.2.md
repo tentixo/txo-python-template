@@ -159,11 +159,104 @@ if strict_mode:
     validate_schema(output, 'output-schema.json')
 ```
 
+### Validation Timing Strategy
+
+**When should validation happen?** Choose based on file type and use case.
+
+#### Early Validation (Preferred - Fail Fast)
+
+**Validate at load time** for:
+- ✅ Configuration files (MANDATORY)
+- ✅ Small input files (<1MB)
+- ✅ Critical data that affects program flow
+- ✅ Schema-dependent processing logic
+
+```python
+# ✅ Configuration - validate immediately at load
+def load_config(org_id: str, env_type: str):
+    """Load and validate configuration."""
+    config = _load_json(config_file)
+    validate_schema(config, 'org-env-config-schema.json')  # Fail immediately
+    return config
+```
+
+**Benefits:**
+- Fail immediately before any processing
+- Clear, actionable error messages upfront
+- No partial processing of invalid data
+- Easier debugging (errors at load, not deep in processing)
+
+#### Late Validation (When Needed - Performance)
+
+**Validate on demand** for:
+- ✅ Large data files (>1MB) where early validation is expensive
+- ✅ Optional features (only validate when feature is used)
+- ✅ Streaming data (validate chunks as processed)
+- ✅ Already-validated data (don't re-validate in tight loops)
+
+```python
+# ✅ Large data - validate selectively
+def process_large_dataset(data_file: Path):
+    """Process large dataset with selective validation."""
+    # Don't validate entire file upfront (expensive)
+    for chunk in read_chunks(data_file, chunk_size=1000):
+        if is_critical_operation(chunk):
+            validate_schema(chunk, 'data-schema.json')  # Validate when needed
+        process_chunk(chunk)
+```
+
+**Benefits:**
+- Better performance for large files
+- Avoid unnecessary validation overhead
+- Flexible validation based on runtime conditions
+
+#### Hybrid Validation (Best of Both)
+
+**Validate structure early, content late** for complex scenarios:
+
+```python
+# ✅ Hybrid - structure early, content late
+def import_customer_data(input_file: Path):
+    """Import customer data with hybrid validation."""
+
+    # Early: Validate file structure immediately
+    data = _load_json(input_file)
+    validate_structure(data, 'customer-structure-schema.json')  # Fast check
+
+    # Late: Validate content for each record during processing
+    results = ProcessingResults()
+    for customer in data['customers']:
+        try:
+            if needs_api_sync(customer):
+                validate_schema(customer, 'customer-full-schema.json')  # Detailed check
+            sync_customer(customer)
+            results.created.append(customer['id'])
+        except ValidationError as e:
+            results.failed.append(f"{customer.get('id', 'unknown')}: {e}")
+
+    return results
+```
+
+#### Validation Decision Matrix
+
+| File Type | Size | Validation Timing | Rationale |
+|-----------|------|------------------|-----------|
+| **Configuration** | Any | Early (load time) | MANDATORY - fail fast on invalid config |
+| **Input Data** | <1MB | Early (load time) | Fast validation, clear errors |
+| **Input Data** | >1MB | Late (on use) | Performance - validate chunks/on-demand |
+| **API Payloads** | Any | Early (before send) | Prevent bad API calls |
+| **API Responses** | Any | Late (optional) | Trust external API, validate if critical |
+| **Output Files** | Any | Late (optional) | Don't slow down output generation |
+| **Cached Data** | Any | Skip | Already validated, don't repeat |
+
 ### Consequences
 
 - Positive: Catch errors early, consistent data structure, self-documenting
+- Positive: Clear validation timing strategy (early vs late vs hybrid)
+- Positive: Performance-conscious validation for large files
 - Negative: Additional schema maintenance overhead
-- Mitigation: Generate schemas from examples, version schemas with configs
+- Negative: Developers must choose appropriate timing strategy
+- Mitigation: Generate schemas from examples, version schemas with configs, use decision matrix above
 
 ---
 
@@ -909,19 +1002,27 @@ installation-guide_v1.0.md → installation-guide_v1.0.1.md
 #### **Version Archive Strategy**
 
 - **Keep current version** in main directory
-- **Archive old versions** in `archive/` subdirectory when superseded
+- **Archive old versions** in `old/` subdirectory when superseded (user manually archives)
 - **Maintain compatibility** for at least one major version
+- **AI behavior**: ALWAYS ignore old/ directories (see ADR-AI002)
 
 ```bash
 # Current structure
 ai/decided/
-├── txo-business-adr_v3.1.md          # Current
-├── txo-technical-standards_v3.1.md   # Current
-├── utils-quick-reference_v1.0.md     # Current
-└── archive/
-    ├── txo-business-adr_v3.0.md       # Previous
-    └── adr_v3.md                      # Legacy format
+├── txo-business-adr_v3.2.md          # Current
+├── txo-technical-standards_v3.2.md   # Current
+├── utils-quick-reference_v3.2.md     # Current
+└── old/                               # AI IGNORES this
+    ├── txo-business-adr_v3.1.md       # Previous
+    └── adr_v3.0.md                    # Legacy format
 ```
+
+**AI Ignore Rules** (per ADR-AI002):
+- **old/** directories may exist anywhere (root, ai/, ai/decided/, ai/prompts/, ai/reports/)
+- **AI MUST ignore** all old/ subdirectories unless explicitly instructed
+- **Rationale**: Prevents AI from using outdated patterns
+- **User control**: Manual archival, user decides when to delete/move
+- **Advanced**: Pro users can create .claudeignore for additional control
 
 ### Content Structure Standards
 
@@ -1193,9 +1294,411 @@ TXO projects generate multiple documentation files that serve different audience
 
 ---
 
+## ADR-B015: Documentation as First-Class Deliverable
+
+**Status:** MANDATORY
+**Date:** 2025-10-29
+
+### Context
+
+TentXO (TXO) values user independence and long-term maintainability. Undocumented code creates support burden, increases onboarding time, and reduces adoption. Different work types (Script Creating vs Refactoring workflows) have different documentation needs.
+
+### Decision
+
+Documentation is a **first-class deliverable** with mandatory requirements based on work type.
+
+### Documentation Hierarchy
+
+**Priority Order** (from most to least critical):
+1. **User Documentation** - Enables users to succeed independently
+2. **Maintainer Documentation** - Enables extension and troubleshooting
+3. **Internal Documentation** - Tracks decisions and rationale
+
+**Rationale**: User success is paramount. Maintainers can read code if needed. Internal docs support continuity.
+
+### Documentation Requirements by Work Type
+
+#### For Script Creating Workflow (User-Facing)
+
+**MANDATORY**:
+- `README.md` - Quick-start guide (15-minute success target, ADR-B014)
+- `in-depth-readme.md` - Maintainer guide (comprehensive reference, ADR-B014)
+- Usage examples in docstrings
+- Configuration file templates with comments
+
+**OPTIONAL**:
+- Architecture diagrams (for complex integrations)
+- Troubleshooting guides (if common issues expected)
+
+**Scaling Rule**:
+- Simple scripts: Lighter in-depth-readme (~1 screen)
+- Complex scripts: Full in-depth-readme (5+ screens)
+- Both files always created (consistent process)
+
+#### For Refactoring Workflow (Internal)
+
+**MANDATORY**:
+- `ai/TODO.md` - Task tracking with status (enables resumability)
+- Test coverage for changed code
+- ADR updates if new patterns introduced
+- Session summary for multi-session work
+
+**OPTIONAL**:
+- Extensive user documentation (framework is internal)
+- README updates only if user-facing changes
+- In-depth docs only if architecture changed significantly
+
+**Focus**: Tests + tracking > extensive documentation
+
+### Implementation
+
+**Script Creating Workflow** (ai-prompt-template):
+```
+Phase 1: Context upload
+Phase 2: Requirements (ask about tests, confirm docs)
+Phase 3: Code generation
+Phase 4: Validation
+Phase 5: Quality review (optional)
+Phase 6: README.md (mandatory)
+Phase 7: in-depth-readme.md (mandatory, scaled to complexity)
+Phase 8: Balance review
+```
+
+**Refactoring Workflow** (refactoring-ai-prompt):
+```
+Phase 0: Assessment (create ai/TODO.md - mandatory)
+Phase 1-N: Refactor by priority (update ai/TODO.md)
+Phase N+1: Test coverage verification (mandatory)
+Phase N+2: ADR updates (if new patterns)
+Phase N+3: Validation
+Documentation: Only if user-facing changes
+```
+
+### TXO 10-Step Lifecycle Applicability
+
+**Script Creating Workflow**:
+- **Steps 1-5**: Discuss, Decision, Todo, Code, Validate (ALL apply)
+- **Step 6**: Utils Reference - **NOT applicable** (not modifying utils/)
+- **Steps 7-10**: AI Prompts, Documentation, Release Notes, Leftovers (ALL apply)
+
+**Refactoring Workflow**:
+- **Steps 1-5**: ALL apply
+- **Step 6**: Utils Reference - **MANDATORY if utils/ modified**
+  - Check: Did we add/change functions, classes, methods, properties?
+  - Action: Update ai/decided/utils-quick-reference_v{X}.md
+  - **Critical**: Often forgotten - explicitly verify before done-done
+- **Steps 7-10**: ALL apply
+
+**Step 6 Trigger for Refactoring**:
+- Added new functions or changed signatures
+- Created new classes (e.g., AsyncOperationResult)
+- Added properties (e.g., CircuitBreaker.stats)
+- Implemented stub functions (e.g., update_from_headers)
+- Changed parameters (e.g., setup_logger(strict=False))
+
+**If YES to any**: Update utils-quick-reference is MANDATORY
+
+### Template Requirements
+
+**README.md Template**:
+- Purpose/Scope
+- Prerequisites
+- Setup Instructions
+- Usage
+- Configuration Overview
+- Output Contract
+- Logging Contract
+- Troubleshooting
+
+**in-depth-readme.md Template**:
+- Architecture & Design Rationale
+- Detailed Configuration Options
+- Error Handling Patterns
+- Developer Extension Notes
+- Comprehensive Examples
+- References to ADRs
+
+**ai/TODO.md Template** (for Refactoring workflow):
+- Task list with status (pending/in-progress/completed)
+- Priority ranking
+- Estimated effort
+- Success criteria
+- File references with line numbers
+
+### Template vs Project Documentation Distinction
+
+**IMPORTANT**: Differentiate between documentation templates and project documentation
+
+#### Template Examples (ai/decided/*-example_v3.2.md)
+
+**Purpose**: Patterns for AI to copy during Script Creating workflow
+- `readme-example_v3.2.md` - Template for script's README.md
+- `in-depth-readme-example_v3.2.md` - Template for script's in-depth documentation
+
+**Content**: Generic structure with placeholders like [Your Script Name], [What it does]
+
+**AI Action**:
+- **During Script Creating**: Copy structure, replace ALL placeholders with script-specific content
+- **During Refactoring**: Update ONLY if template shows outdated patterns
+
+**Not For**: Documenting the TXO Template project itself
+
+#### Project Documentation (root README.md)
+
+**Purpose**: Explains the TXO Python Template project itself
+
+**Content**: How to use the template, setup instructions, features
+
+**Updated By**:
+- **Refactoring workflow**: Update if template features changed
+- **Script Creating workflow**: User may replace if developing script in template repo
+
+**Key Distinction**:
+- Template examples: AI copies for generated scripts
+- Project README: Explains the template itself
+
+### Consequences
+
+**Positive**:
+- Consistent documentation quality across all scripts
+- Users can succeed independently (reduces support burden)
+- Maintainers can extend without original author
+- Refactoring work is resumable (ai/TODO.md enables breaks)
+- Clear expectations for AI assistants
+- Documentation hierarchy reflects value priorities
+
+**Negative**:
+- Takes time to create proper documentation
+- Simple scripts get more docs than minimal approach
+- Framework refactoring requires task tracking overhead
+
+**Mitigation**:
+- Templates make documentation faster
+- Scale in-depth docs to script complexity
+- ai/TODO.md saves time in long refactorings (prevents re-work)
+- AI generates documentation, not manual work
+
+### Validation
+
+**For Script Creating Workflow**:
+```bash
+# Check documentation exists
+ls README.md in-depth-readme.md
+
+# Verify README targets 15-min success
+wc -l README.md  # Should be <100 lines (2 screens)
+
+# Check both docs cross-reference
+grep -i "in-depth" README.md
+grep -i "README" in-depth-readme.md
+```
+
+**For Refactoring Workflow**:
+```bash
+# Check task tracking exists
+ls ai/TODO.md
+
+# Verify test coverage
+python -m pytest --cov=utils tests/
+
+# Check ADRs updated if new patterns
+git diff ai/decided/
+```
+
+---
+
+**Mitigation**: Clear templates, AI generation, scaled to complexity
+
+---
+
+## ADR-B016: Human-Friendly AI Prompts
+
+**Status:** MANDATORY
+**Date:** 2025-10-29
+
+### Context
+
+TXO uses AI prompts for Script Creating and Refactoring workflows. These prompts are version-controlled documents that must be:
+- Effective for AI consumption (Claude and future models)
+- Readable and maintainable by humans
+- Easy to review in git diffs
+- Simple to update based on learnings
+
+Pure XML prompts are difficult for humans to read and edit, while providing no proven advantage for modern AI models (Claude Sonnet 4.5+ verified).
+
+### Decision
+
+**Use Markdown-first format with inline XML blocks only for structured data.**
+
+### Format Standard
+
+**Base Format**: Markdown
+- Readable prose and explanations
+- Clear hierarchy with headers (##, ###)
+- Bullet points and numbered lists
+- Code blocks for examples
+
+**Structured Data**: XML blocks
+- Use only where structure matters more than prose
+- Embedded in markdown with triple-backtick code fences
+- Provides precision for checklists, metadata, options
+
+**Prohibited**: Pure XML files
+- Harder to maintain
+- Poor readability
+- No AI advantage (verified)
+- Difficult git diffs
+
+### When to Use XML vs Markdown
+
+**Use XML Blocks For**:
+- Document lists with type/version attributes: `<doc type="adr" version="v3.2">`
+- Checklists with priority/status: `<check priority="critical" status="required">`
+- Nested options with properties: `<option value="comprehensive" effort="high">`
+- Metadata blocks: `<metadata><version>3.2</version></metadata>`
+
+**Use Markdown For**:
+- Instructions and workflows (numbered or bulleted)
+- Explanations and rationale (prose paragraphs)
+- Examples and code samples (code blocks)
+- Discussion and context (natural language)
+- Lists and sequences (markdown lists)
+
+### Implementation Pattern
+
+**Good Example** (from ai-prompt-template_v3.2.md):
+```markdown
+## Phase 1: Context Upload (CRITICAL)
+
+**Upload these documents to establish TXO patterns:**
+
+```xml
+<required-documents>
+    <doc type="business-rules" version="v3.2">
+        <file>ai/decided/txo-business-adr_v3.2.md</file>
+        <purpose>Organizational patterns, hard-fail philosophy</purpose>
+    </doc>
+    <doc type="technical-standards" version="v3.2">
+        <file>ai/decided/txo-technical-standards_v3.2.md</file>
+        <purpose>Python patterns, ADR-T011, ADR-T012</purpose>
+    </doc>
+</required-documents>
+```
+
+**Instructions**:
+1. READ and UNDERSTAND the business rules
+2. STUDY the available functions
+3. ANALYZE configuration patterns
+```
+
+**Poor Example** (pure XML):
+```xml
+<phase>
+    <number>1</number>
+    <title>Context Upload</title>
+    <priority>critical</priority>
+    <instruction>
+        <action>Upload documents</action>
+        <document>
+            <type>business-rules</type>
+            <file>ai/decided/txo-business-adr_v3.2.md</file>
+        </document>
+    </instruction>
+    <steps>
+        <step>Read and understand</step>
+        <step>Study available functions</step>
+    </steps>
+</phase>
+```
+
+### File Naming Convention
+
+**Format**: `prompt-name_v{version}.md`
+- Extension: `.md` (not `.xml.md`)
+- Use markdown extension for markdown-first files
+- Indicates primary format to tools and IDEs
+
+**Examples**:
+- ✅ `ai-prompt-template_v3.2.md`
+- ✅ `refactoring-ai-prompt_v3.2.md`
+- ❌ `refactoring-xml-ai-prompt_v3.0.xml.md` (old pattern)
+
+### Rationale
+
+**Why Markdown-First**:
+- Universal developer skill (everyone knows markdown)
+- Better IDE support (preview, formatting, navigation)
+- Clear git diffs (see what changed)
+- Encourages humans to read and improve prompts
+- Natural language flow for context and explanations
+
+**Why Keep Some XML**:
+- Structured data benefits from explicit tags
+- Attributes provide metadata efficiently
+- Hierarchy clear in nested structures
+- Precision for checklists and validation criteria
+
+**Why This Matters**:
+- Prompts evolve based on learnings (like our v3.2 updates)
+- Humans must maintain prompts (update patterns, add learnings)
+- Collaboration requires readability (team reviews prompts)
+- Future maintainers inherit these documents
+
+### AI Effectiveness Validation
+
+**Tested With**: Claude Sonnet 4.5 during v3.2 refactoring
+**Result**: Markdown+XML hybrid (ai-prompt-template_v3.2.md) worked flawlessly
+
+**Claude's Reality**:
+- Markdown headers understood as hierarchy (`## Phase 1` = structure)
+- Bullet points parsed as sequences (no `<step>` tags needed)
+- Code blocks preferred for examples (clearer than escaped XML)
+- XML blocks understood when present (parsed equally well)
+- **No advantage to pure XML** - possibly slight disadvantage (more tokens, less context)
+
+### Consequences
+
+**Positive**:
+- Human-readable and maintainable by any developer
+- AI parses equally well (Claude Sonnet 4.5 verified in practice)
+- Better collaboration (team can review and improve)
+- Clear git diffs (see changes easily)
+- Encourages prompt evolution (easier to update)
+- Aligns with TXO values (usability, clarity, independence)
+- Future-proof (AI trends toward natural language)
+
+**Negative**:
+- Cannot validate entire file with XML parser
+- Requires understanding both markdown and XML syntax
+- Less rigid structure (though flexibility can be positive)
+- Mixed format (but commonly used in documentation)
+
+**Mitigation**:
+- Provide clear templates (ai-prompt-template as reference)
+- Document when to use XML vs markdown (this ADR)
+- Use XML sparingly (only where structure truly helps)
+- Validate prompts through actual use, not parsers
+
+---
+
+**Mitigation**: Templates provided, actual usage validates effectiveness
+
+---
+
 ## Version History
 
-### v3.1.1 (Current)
+### v3.2 (Current)
+
+- Added ADR-B015: Documentation as First-Class Deliverable
+- Added ADR-B016: Human-Friendly AI Prompts (markdown+XML hybrid mandatory)
+- Enhanced ADR-B004: Validation timing strategy (early vs late vs hybrid)
+- Documented documentation hierarchy (User > Maintainer > Internal)
+- Made ai/TODO.md mandatory for Refactoring workflow
+- Added validation decision matrix for file types and sizes
+- Documented fail-fast vs performance trade-offs
+- Aligned with v3.2 refactoring efforts
+
+### v3.1.1
 
 - Enhanced ADR-B006: Smart Logging Context Strategy with ERD alignment
 - Implemented proportional complexity (simple local vs detailed external operations)
@@ -1216,7 +1719,7 @@ TXO projects generate multiple documentation files that serve different audience
 
 ---
 
-**Version:** v3.1.1
-**Last Updated:** 2025-09-28
+**Version:** v3.2
+**Last Updated:** 2025-10-29
 **Domain:** TXO Business Architecture
 **Purpose:** Organizational patterns and operational requirements  

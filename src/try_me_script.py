@@ -31,6 +31,7 @@ from utils.path_helpers import Dir  # v3.0: Type-safe directory constants
 from utils.api_factory import create_rest_api
 from utils.exceptions import ApiOperationError, HelpfulError
 
+# Logger initialization - exits on error by default (infrastructure)
 logger = setup_logger()
 data_handler = TxoDataHandler()
 

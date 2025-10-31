@@ -61,16 +61,23 @@ class RateLimiter:
 
 class CircuitBreaker:
     """
-    Circuit breaker pattern implementation.
+    Circuit breaker pattern implementation with enhanced observability.
 
     Prevents cascading failures by stopping calls to a failing service
-    after a threshold of failures is reached.
+    after a threshold of failures is reached. Tracks state transitions
+    and provides statistics for monitoring.
+
+    States:
+    - closed: Normal operation, all calls allowed
+    - open: Too many failures, calls blocked
+    - half-open: Testing recovery, one call allowed
     """
-    __slots__ = ['failure_threshold', 'timeout', '_failures', '_last_failure', '_state']
+    __slots__ = ['failure_threshold', 'timeout', '_failures', '_last_failure', '_state',
+                 '_state_changed_at', '_total_requests', '_total_failures']
 
     def __init__(self, failure_threshold: int = 5, timeout: int = 60):
         """
-        Initialize circuit breaker.
+        Initialize circuit breaker with statistics tracking.
 
         Args:
             failure_threshold: Number of failures before opening circuit
@@ -81,21 +88,54 @@ class CircuitBreaker:
         self._failures = 0
         self._last_failure = 0.0
         self._state = "closed"
+        self._state_changed_at = time.time()
+        self._total_requests = 0
+        self._total_failures = 0
+
+    def _change_state(self, new_state: str, reason: str = "") -> None:
+        """
+        Change circuit breaker state with logging.
+
+        Args:
+            new_state: Target state (closed, open, half-open)
+            reason: Reason for state change
+        """
+        if new_state != self._state:
+            old_state = self._state
+            time_in_state = time.time() - self._state_changed_at
+
+            logger.info(
+                f"Circuit breaker state: {old_state} → {new_state} "
+                f"(was in {old_state} for {time_in_state:.1f}s) - {reason}"
+            )
+
+            self._state = new_state
+            self._state_changed_at = time.time()
 
     def record_success(self) -> None:
-        """Record a successful operation."""
+        """Record a successful operation with state transition logging."""
+        self._total_requests += 1
         self._failures = 0
-        self._state = "closed"
-        logger.debug("Circuit breaker: success recorded, circuit closed")
+
+        if self._state != "closed":
+            self._change_state("closed", "Success after failure")
+        else:
+            logger.debug("Circuit breaker: success recorded")
 
     def record_failure(self) -> None:
-        """Record a failed operation."""
+        """Record a failed operation with state transition logging."""
+        self._total_requests += 1
+        self._total_failures += 1
         self._failures += 1
         self._last_failure = time.time()
 
-        if self._failures >= self.failure_threshold:
-            self._state = "open"
-            logger.warning(f"Circuit breaker: opened after {self._failures} failures")
+        if self._failures >= self.failure_threshold and self._state != "open":
+            self._change_state(
+                "open",
+                f"{self._failures} consecutive failures (threshold: {self.failure_threshold})"
+            )
+        elif self._state != "open":
+            logger.debug(f"Circuit breaker: failure {self._failures}/{self.failure_threshold}")
 
     def is_open(self) -> bool:
         """
@@ -110,17 +150,44 @@ class CircuitBreaker:
         # Check if timeout has passed
         if self._state == "open":
             if time.time() - self._last_failure >= self.timeout:
-                self._state = "half-open"
-                logger.info("Circuit breaker: attempting half-open state")
+                self._change_state(
+                    "half-open",
+                    f"Timeout expired ({self.timeout}s since last failure)"
+                )
                 return False  # Allow one attempt
 
         return self._state == "open"
 
     def reset(self) -> None:
-        """Reset the circuit breaker."""
+        """Reset the circuit breaker with state logging."""
         self._failures = 0
-        self._state = "closed"
-        logger.debug("Circuit breaker: reset to closed state")
+        self._change_state("closed", "Manual reset")
+
+    @property
+    def stats(self) -> Dict[str, Any]:
+        """
+        Get circuit breaker statistics for monitoring.
+
+        Returns:
+            Dictionary with current state, failure counts, and metrics
+
+        Example:
+            > breaker = CircuitBreaker(failure_threshold=5, timeout=60)
+            > # ... after some requests ...
+            > stats = breaker.stats
+            > print(f"State: {stats['state']}, Failure rate: {stats['failure_rate']:.1%}")
+        """
+        return {
+            'state': self._state,
+            'consecutive_failures': self._failures,
+            'failure_threshold': self.failure_threshold,
+            'total_requests': self._total_requests,
+            'total_failures': self._total_failures,
+            'failure_rate': self._total_failures / max(1, self._total_requests),
+            'time_in_current_state': time.time() - self._state_changed_at,
+            'timeout_seconds': self.timeout,
+            'last_failure_ago': time.time() - self._last_failure if self._last_failure > 0 else None
+        }
 
 
 def apply_jitter(delay: float, jitter_config: Optional[Dict[str, Any]] = None) -> float:

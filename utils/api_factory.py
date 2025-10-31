@@ -125,7 +125,7 @@ def create_rest_api(config: Dict[str, Any],
                 return _api_cache[cache_key]
 
     # Extract token only if authentication required
-    token = None
+    token = None  # Good practice to have one here
     if require_auth:
         token = config["_token"]  # Hard fail if auth required
     else:

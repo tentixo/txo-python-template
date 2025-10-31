@@ -12,6 +12,10 @@ This module provides centralized logging with:
 
 SECURITY: This logger will FAIL to start if configurations are not properly set.
 No defaults, no fallbacks - configuration is mandatory.
+
+Raises:
+    LoggerConfigurationError: When logger configuration is missing or invalid
+    LoggerSecurityError: When security redaction patterns cannot be loaded
 """
 
 import logging
@@ -26,6 +30,7 @@ from datetime import datetime
 from typing import List, Tuple, Dict, Any
 
 from utils.path_helpers import get_path
+from utils.exceptions import LoggerConfigurationError, LoggerSecurityError
 
 
 class TokenRedactionFilter(logging.Filter):
@@ -40,10 +45,10 @@ class TokenRedactionFilter(logging.Filter):
         super().__init__()
         self.config_path = get_path('config', 'log-redaction-patterns.json')
 
-        # Load and validate configuration - will exit(1) on any failure
+        # Load and validate configuration - raises LoggerSecurityError on any failure
         config = self._load_and_validate_config()
 
-        # Load patterns - will exit(1) on any failure
+        # Load patterns - raises LoggerSecurityError on any failure
         self.patterns = self._load_regex_patterns(config)
         self.simple_patterns = self._load_simple_patterns(config)
 
@@ -59,7 +64,15 @@ class TokenRedactionFilter(logging.Filter):
                   file=sys.stderr)
 
     def _fail(self, message: str) -> None:
-        """Print error and exit with code 1."""
+        """
+        Raise security error for critical redaction pattern failures.
+
+        Args:
+            message: Error message describing the failure
+
+        Raises:
+            LoggerSecurityError: Always raised with formatted error message
+        """
         error_msg = (
             f"\n{'=' * 60}\n"
             f"CRITICAL SECURITY ERROR\n"
@@ -67,8 +80,10 @@ class TokenRedactionFilter(logging.Filter):
             f"File: {self.config_path}\n"
             f"{'=' * 60}"
         )
-        print(error_msg, file=sys.stderr)
-        sys.exit(1)
+        raise LoggerSecurityError(
+            message=error_msg,
+            pattern_file=str(self.config_path)
+        )
 
     def _load_and_validate_config(self) -> Dict[str, Any]:
         """
@@ -337,7 +352,13 @@ class TxoLogger:
         return cls._instance
 
     def __init__(self):
-        """Initialize logger if not already initialized."""
+        """
+        Initialize logger if not already initialized.
+
+        Raises:
+            LoggerSecurityError: If security redaction patterns cannot be loaded
+            LoggerConfigurationError: If logging configuration is missing or invalid
+        """
         with self._lock:
             if not self._initialized:
                 # Debug mode check
@@ -349,20 +370,23 @@ class TxoLogger:
                 # Create base logger
                 self.logger = logging.getLogger('TxoApp')
 
-                # Create token filter - will exit(1) if config missing/invalid
+                # Create token filter - raises LoggerSecurityError if config missing/invalid
                 try:
                     self.token_filter = TokenRedactionFilter()
-                except SystemExit:
-                    # Re-raise to ensure exit
+                except (LoggerSecurityError, LoggerConfigurationError):
+                    # Re-raise logger-specific exceptions
                     raise
                 except Exception as e:
-                    # Unexpected error - still fail hard
-                    print(f"\n{'=' * 60}", file=sys.stderr)
-                    print(f"UNEXPECTED ERROR initializing security: {e}", file=sys.stderr)
-                    print(f"{'=' * 60}\n", file=sys.stderr)
-                    sys.exit(1)
+                    # Unexpected error - wrap in LoggerSecurityError
+                    error_msg = (
+                        f"\n{'=' * 60}\n"
+                        f"UNEXPECTED ERROR initializing security\n"
+                        f"Error: {e}\n"
+                        f"{'=' * 60}"
+                    )
+                    raise LoggerSecurityError(message=error_msg)
 
-                # Setup logging configuration - will exit(1) if config missing/invalid
+                # Setup logging configuration - raises LoggerConfigurationError if config missing/invalid
                 self._setup_logger()
                 self._initialized = True
 
@@ -371,16 +395,20 @@ class TxoLogger:
                 self.logger.debug(f"Loaded {len(self.token_filter.patterns)} regex patterns, "
                                   f"{len(self.token_filter.simple_patterns)} simple patterns")
 
-    def _setup_logger(self) -> None:
+    @staticmethod
+    def _load_logging_config(config_path) -> Dict[str, Any]:
         """
-        Set up logger from MANDATORY configuration file.
+        Load and parse logging configuration JSON file.
 
-        HARD FAILS if logging-config.json is missing or invalid.
-        No defaults, no fallbacks - configuration is mandatory.
-        Quiet on success, verbose on failure.
+        Args:
+            config_path: Path to logging-config.json
+
+        Returns:
+            Parsed configuration dictionary
+
+        Raises:
+            LoggerConfigurationError: If file missing or invalid JSON
         """
-        config_path = get_path('config', 'logging-config.json')
-
         # Check file exists
         if not config_path.exists():
             error_msg = (
@@ -391,13 +419,15 @@ class TxoLogger:
                 f"Create this file to define logging configuration.\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
 
         # Load and parse JSON
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                config = json.load(f)
+                return json.load(f)
         except json.JSONDecodeError as e:
             error_msg = (
                 f"\n{'=' * 60}\n"
@@ -407,8 +437,10 @@ class TxoLogger:
                 f"Error: {e}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
         except Exception as e:
             error_msg = (
                 f"\n{'=' * 60}\n"
@@ -418,9 +450,23 @@ class TxoLogger:
                 f"Error: {e}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
 
+    @staticmethod
+    def _validate_logging_config(config: Dict[str, Any], config_path) -> None:
+        """
+        Validate logging configuration structure and required sections.
+
+        Args:
+            config: Parsed configuration dictionary
+            config_path: Path to config file (for error messages)
+
+        Raises:
+            LoggerConfigurationError: If configuration invalid or incomplete
+        """
         # Validate required structure
         if not isinstance(config, dict):
             error_msg = (
@@ -430,8 +476,10 @@ class TxoLogger:
                 f"File: {config_path}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
 
         # Check for required sections
         required_sections = ['formatters', 'handlers', 'loggers']
@@ -446,10 +494,12 @@ class TxoLogger:
                 f"File: {config_path}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
 
-        # Check TxoApp logger is configured - hard-fail if loggers section missing
+        # Check TxoApp logger is configured
         if 'TxoApp' not in config['loggers']:
             error_msg = (
                 f"\n{'=' * 60}\n"
@@ -459,10 +509,26 @@ class TxoLogger:
                 f"File: {config_path}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
 
-        # Apply runtime modifications
+    def _apply_runtime_modifications(self, config: Dict[str, Any], config_path) -> None:
+        """
+        Apply runtime modifications to logging configuration.
+
+        Modifies:
+        1. Dynamic log file path (computed at runtime with date)
+        2. Force UTC formatter for all formatters
+
+        Args:
+            config: Configuration dictionary to modify in-place
+            config_path: Path to config file (for error messages)
+
+        Raises:
+            LoggerConfigurationError: If modifications fail
+        """
         try:
             # 1. Dynamic log file path (computed at runtime)
             date_str = datetime.now().strftime("%Y-%m-%d")
@@ -503,8 +569,32 @@ class TxoLogger:
                 f"File: {config_path}\n"
                 f"{'=' * 60}"
             )
-            print(error_msg, file=sys.stderr)
-            sys.exit(1)
+            raise LoggerConfigurationError(
+                message=error_msg,
+                config_file=str(config_path)
+            )
+
+    def _setup_logger(self) -> None:
+        """
+        Set up logger from MANDATORY configuration file.
+
+        Orchestrates loading, validation, and configuration of the logger.
+        HARD FAILS if logging-config.json is missing or invalid.
+        No defaults, no fallbacks - configuration is mandatory.
+
+        Raises:
+            LoggerConfigurationError: If logging configuration is missing or invalid
+        """
+        config_path = get_path('config', 'logging-config.json')
+
+        # Load configuration from file
+        config = self._load_logging_config(config_path)
+
+        # Validate configuration structure
+        self._validate_logging_config(config, config_path)
+
+        # Apply runtime modifications and configure logging
+        self._apply_runtime_modifications(config, config_path)
 
         # Add token redaction filter to everything
         self.logger.addFilter(self.token_filter)
@@ -520,7 +610,8 @@ class TxoLogger:
         """
         Reload redaction patterns from config file.
 
-        Will exit(1) if patterns cannot be reloaded.
+        Raises:
+            LoggerSecurityError: If patterns cannot be reloaded
         """
         with self._lock:
             self.logger.info("Reloading redaction patterns...")
@@ -531,11 +622,12 @@ class TxoLogger:
             root_logger.removeFilter(self.token_filter)
 
             # Create new filter with reloaded patterns
-            # This will exit(1) if config is now invalid
+            # This will raise LoggerSecurityError if config is now invalid
             try:
                 self.token_filter = TokenRedactionFilter()
-            except SystemExit:
-                print("\nFAILED TO RELOAD - APPLICATION WILL EXIT", file=sys.stderr)
+            except LoggerSecurityError:
+                self.logger.error("FAILED TO RELOAD - Keeping old patterns")
+                # Re-raise the exception for caller to handle
                 raise
 
             # Add new filter
@@ -572,34 +664,60 @@ class TxoLogger:
         self.logger.exception(msg, *args, **kwargs)
 
 
-def setup_logger() -> TxoLogger:
+def setup_logger(strict: bool = False) -> TxoLogger:
     """
-    Get configured logger instance.
+    Get configured logger instance with flexible error handling.
 
-    WILL EXIT(1) if:
-    - log-redaction-patterns.json is missing or invalid
-    - logging-config.json is missing or invalid
+    Logger is infrastructure - if it fails, application cannot continue safely
+    (no logging, no security redaction). Default behavior exits on error.
 
-    Security and configuration are mandatory - no defaults, no fallbacks.
+    Args:
+        strict: If True, raises exceptions (for testing). If False (default),
+                exits with sys.exit(1) on configuration errors.
 
     Returns:
         Configured TxoLogger instance
 
     Raises:
-        SystemExit: If any configuration is missing or invalid
+        LoggerConfigurationError: If logging config missing/invalid (only when strict=True)
+        LoggerSecurityError: If security patterns cannot be loaded (only when strict=True)
 
     Example:
-        >>> logger = setup_logger()  # Will exit(1) if not configured
-        >>> ctx = "[prod:company123]"
-        >>> logger.info(f"{ctx} Processing started")
+        > # Normal usage (default - exits on error)
+        > logger = setup_logger()
+        > logger.info("Processing started")
+        >
+        > # Testing usage (raises exceptions)
+        > logger = setup_logger(strict=True)  # Can test error paths
+        >
+        > # With explicit error handling (if needed)
+        > from utils.exceptions import LoggerConfigurationError, LoggerSecurityError
+        > try:
+        >     logger = setup_logger(strict=True)
+        > except (LoggerConfigurationError, LoggerSecurityError) as e:
+        >     handle_error(e)
 
     Debug Mode:
         Set DEBUG_LOGGING=1 environment variable to see initialization details:
         $ DEBUG_LOGGING=1 python your_script.py
+
+    Note:
+        Logger is infrastructure (ADR-T012 exception). Default behavior calls
+        sys.exit(1) on error because application cannot continue without logging.
     """
     try:
         return TxoLogger()
-    except SystemExit:
-        # Ensure we exit even if called in a try/except
-        print("\nCONFIGURATION REQUIRED - CANNOT CONTINUE", file=sys.stderr)
-        sys.exit(1)
+    except (LoggerConfigurationError, LoggerSecurityError) as e:
+        if strict:
+            # For testing - raise the exception
+            raise
+        else:
+            # Infrastructure failure - cannot continue without logger
+            # This is the ONLY acceptable sys.exit() in library code (ADR-T012)
+            print(f"\n{'=' * 60}", file=sys.stderr)
+            print("FATAL: Logger initialization failed", file=sys.stderr)
+            print(f"{'=' * 60}", file=sys.stderr)
+            print(f"\n{e}\n", file=sys.stderr)
+            print("Application cannot continue without logging.", file=sys.stderr)
+            print(f"{'=' * 60}\n", file=sys.stderr)
+            sys.exit(1)

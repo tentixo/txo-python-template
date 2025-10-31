@@ -163,18 +163,86 @@ class ScriptRunner:
 
         return config
 
-    def acquire_token(self, config: Dict[str, Any]) -> Optional[str]:
+    @staticmethod
+    def _extract_oauth_config(config: Dict[str, Any]) -> tuple:
         """
-        Acquire OAuth token if required.
+        Extract OAuth configuration from config dictionary.
+
+        Uses hard-fail pattern (ADR-B003) - raises HelpfulError if any
+        required OAuth setting is missing.
 
         Args:
             config: Configuration dictionary
 
         Returns:
-            Token string or None
+            Tuple of (tenant_id, client_id, oauth_scope, client_secret)
 
         Raises:
-            HelpfulError: If token acquisition fails
+            HelpfulError: If OAuth config incomplete with helpful instructions
+        """
+        try:
+            global_config = config["global"]  # Hard-fail if missing
+            tenant_id = global_config["tenant-id"]  # Hard-fail
+            client_id = global_config["client-id"]  # Hard-fail
+            oauth_scope = global_config["oauth-scope"]  # Hard-fail
+            client_secret = config["_client_secret"]  # Hard-fail (injected from secrets)
+
+            return tenant_id, client_id, oauth_scope, client_secret
+
+        except KeyError as e:
+            # Convert KeyError to HelpfulError with context
+            missing_key = str(e).strip("'\"")
+            raise HelpfulError(
+                what_went_wrong=f"Token required but OAuth config incomplete. Missing: {missing_key}",
+                how_to_fix=(
+                    "Either:\n"
+                    "  1. Add missing OAuth setting to your config file (global section)\n"
+                    "  2. Add 'az-token' to your secrets file as fallback\n"
+                    "  3. If token not needed, use require_token=False"
+                ),
+                example=(
+                    "In config: \"global\": {\n"
+                    "  \"tenant-id\": \"your-tenant-id\",\n"
+                    "  \"client-id\": \"your-client-id\",\n"
+                    "  \"oauth-scope\": \"https://api.businesscentral.dynamics.com/.default\"\n"
+                    "}\n"
+                    "In secrets: {\n"
+                    "  \"client-secret\": \"your-secret\",\n"
+                    "  \"az-token\": \"fallback-token-here\" (optional)\n"
+                    "}"
+                )
+            ) from e
+
+    def _get_or_create_oauth_client(self, tenant_id: str) -> OAuthClient:
+        """
+        Get existing OAuth client or create a new one.
+
+        Args:
+            tenant_id: Azure tenant ID
+
+        Returns:
+            OAuthClient instance (cached after first creation)
+        """
+        if not self.oauth_client:
+            self.oauth_client = OAuthClient(tenant_id=tenant_id, cache_tokens=True)
+            logger.debug(f"Created new OAuth client for tenant {tenant_id[:8]}...")
+
+        return self.oauth_client
+
+    def acquire_token(self, config: Dict[str, Any]) -> Optional[str]:
+        """
+        Acquire OAuth token if required.
+
+        Orchestrates token acquisition from fallback or OAuth flow.
+
+        Args:
+            config: Configuration dictionary
+
+        Returns:
+            Token string or None if not required
+
+        Raises:
+            HelpfulError: If token acquisition fails with helpful instructions
         """
         if not self.require_token:
             logger.debug("Token acquisition not required for this script")
@@ -183,50 +251,20 @@ class ScriptRunner:
         logger.info("Acquiring OAuth token...")
 
         try:
-            # Check for fallback token first
+            # Check for fallback token first (optional - soft-fail OK)
             fallback_token = config.get("_az_token")
             if fallback_token:
                 logger.info("Using fallback token from secrets")
                 return fallback_token
 
-            # Extract OAuth config (hard-fail if missing when required)
-            global_config = config["global"]  # Hard-fail if missing
+            # Extract OAuth configuration (hard-fail if missing)
+            tenant_id, client_id, oauth_scope, client_secret = self._extract_oauth_config(config)
 
-            tenant_id = global_config.get("tenant-id")
-            client_id = global_config.get("client-id")
-            oauth_scope = global_config.get("oauth-scope")
-            client_secret = config.get("_client_secret")  # From secrets
+            # Get or create OAuth client
+            oauth_client = self._get_or_create_oauth_client(tenant_id)
 
-            # Check if OAuth is configured
-            if not all([tenant_id, client_id, oauth_scope, client_secret]):
-                missing = []
-                if not tenant_id:
-                    missing.append("tenant-id")
-                if not client_id:
-                    missing.append("client-id")
-                if not oauth_scope:
-                    missing.append("oauth-scope")
-                if not client_secret:
-                    missing.append("client-secret (in secrets file)")
-
-                raise HelpfulError(
-                    what_went_wrong=f"Token required but OAuth config incomplete. Missing: {', '.join(missing)}",
-                    how_to_fix=(
-                        "Either:\n"
-                        "  1. Add OAuth settings to your config file (global section)\n"
-                        "  2. Add 'az-token' to your secrets file as fallback\n"
-                        "  3. If token not needed, use require_token=False"
-                    ),
-                    example=(
-                        "In config: \"global\": {\"tenant-id\": \"...\", \"client-id\": \"...\", \"oauth-scope\": \"...\"}\n"
-                        "In secrets: {\"client-secret\": \"...\", \"az-token\": \"fallback-token-here\"}"
-                    )
-                )
-
-            if not self.oauth_client:
-                self.oauth_client = OAuthClient(tenant_id=tenant_id, cache_tokens=True)
-
-            token = self.oauth_client.get_client_credentials_token(
+            # Acquire token
+            token = oauth_client.get_client_credentials_token(
                 client_id=client_id,
                 client_secret=client_secret,
                 scope=oauth_scope,
