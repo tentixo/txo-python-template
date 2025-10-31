@@ -135,6 +135,43 @@
 
 **See**: `ai/decided/txo-ai-adr_v3.2.md` for complete AI workflow standards
 
+### PROJECT-STATUS.md Template (Include TXO 10-Step Checklist)
+
+**When creating ai/PROJECT-STATUS.md, include this structure**:
+
+```markdown
+## Meta-Work: TXO 10-Step Lifecycle
+
+### Implementation Steps (1-5)
+- [ ] Step 1: Discuss - Analyzed issues
+- [ ] Step 2: Decision - ADRs updated
+- [ ] Step 3: Todo - ai/TODO.md created
+- [ ] Step 4: Code - Refactoring implemented
+- [ ] Step 5: Validation - Tests passing
+
+### Documentation Steps (6-10) ⚠️ OFTEN FORGOTTEN
+- [ ] **Step 6: Utils Reference** ⚠️ UPDATE if functions added/changed
+- [ ] Step 7: AI Prompts - Update if new patterns
+- [ ] Step 8: Documentation - Update README if user-facing
+- [ ] Step 9: Release Notes - Comprehensive changelog
+- [ ] Step 10: Leftovers - Track future improvements
+
+**Can't mark 100% done-done until ALL checked**
+```
+
+### ai/TODO.md Template (Include Meta-Tasks Section)
+
+**ai/TODO.md should always include**:
+
+```markdown
+## META-TASKS (Steps 6-10 - Complete Before Done-Done)
+
+### ⏳ Step 6: Update Utils Reference
+- Check: Modified utils/*.py files?
+- Action: Update utils-quick-reference_v{X}.md
+- Add: New functions, classes, methods, properties
+```
+
 ### AI Assessment (Mandatory Analysis)
 
 **After creating META-DOCUMENTS, AI analyzes code**:
@@ -280,16 +317,16 @@ manager.update_from_headers(url, response.headers)
 
 ### Phase 1-N: Refactor by Priority
 
-**For each task in ai/to-do.md**:
+**For each task in ai/TODO.md**:
 
-1. **Mark as in-progress** in ai/to-do.md
+1. **Mark as in-progress** in ai/TODO.md
 2. **Implement fix** following ADRs
 3. **Validate immediately**:
    ```bash
    python -m py_compile utils/modified_file.py
    python tests/test_feature.py  # If test exists
    ```
-4. **Mark as completed** in ai/to-do.md
+4. **Mark as completed** in ai/TODO.md
 5. **Move to next task**
 
 **Don't batch**: Validate after EACH task, not at end
@@ -355,14 +392,14 @@ grep -r "config\.get(" utils/*.py  # Check each usage
 See: `ai/prompts/large-refactoring-workflow_v3.2.md`
 
 **Checkpoint Strategy**:
-- ai/to-do.md updated continuously
+- ai/TODO.md updated continuously
 - Session summaries created: ai/reports/session-summary_DATE.md
 - ADR updates committed separately
 - Git commits at priority boundaries
 
 **Resume Pattern**:
 ```
-1. Read ai/to-do.md (current status)
+1. Read ai/TODO.md (current status)
 2. Read latest session summary (decisions made)
 3. Verify last changes compile
 4. Continue with next pending task
@@ -390,14 +427,14 @@ See: `ai/prompts/large-refactoring-workflow_v3.2.md`
 ## 🎓 Key Learnings from v3.2
 
 **What Worked Exceptionally Well**:
-1. ai/to-do.md tracking (managed 16 tasks effectively)
+1. ai/TODO.md tracking (managed 16 tasks effectively)
 2. module-dependency-diagram.md understanding (guided logger decision)
 3. PyCharm inspection (found issues across codebase)
 4. Priority ranking (enabled logical break points)
 5. Soft success discussion (enabled pragmatic trade-offs)
 
 **Recommendations**:
-- Always create ai/to-do.md in Phase 0 (ADR-B015 requirement)
+- Always create ai/TODO.md in Phase 0 (ADR-B015 requirement)
 - Always read module-dependency-diagram.md (architecture critical)
 - Request PyCharm inspection results upfront (valuable data)
 - Work priority-by-priority (enables resume)
@@ -405,9 +442,53 @@ See: `ai/prompts/large-refactoring-workflow_v3.2.md`
 
 ---
 
+## Before Marking Refactoring Complete - Step 6 Verification ⚠️
+
+**CRITICAL**: AI MUST verify Step 6 (often forgotten in refactoring excitement)
+
+**Check**: Did we add or modify any public functions/classes in utils/?
+
+```xml
+<step-6-verification>
+    <question>What did we add/change in utils/?</question>
+    <check-for>
+        <item>New functions or methods</item>
+        <item>New classes (e.g., AsyncOperationResult)</item>
+        <item>Changed signatures (e.g., setup_logger gained strict parameter)</item>
+        <item>New properties (e.g., CircuitBreaker.stats)</item>
+        <item>Implemented stubs (e.g., update_from_headers)</item>
+    </check-for>
+
+    <if-yes>
+        <action>Update ai/decided/utils-quick-reference_v{X}.md NOW</action>
+        <add>
+            - Function signatures with new parameters
+            - New classes with usage examples
+            - New properties with return types
+            - Implemented features that were stubs
+            - Update Version History section
+        </add>
+    </if-yes>
+
+    <if-no>
+        <action>Note in PROJECT-STATUS: "Step 6: N/A (no utils/ API changes)"</action>
+    </if-no>
+</step-6-verification>
+```
+
+**AI asks user before marking done-done**:
+"I've completed refactoring. Should I update utils-quick-reference_v{X}.md with:
+- [List specific additions]
+
+Or mark Step 6 as N/A if no public API changes?"
+
+**This check is MANDATORY** - can't proceed to done-done without addressing Step 6
+
+---
+
 ## Final Step: Done-Done-Done (Git Operations)
 
-**After refactoring complete and user approves**:
+**After Step 6 verification and user approves**:
 
 **Project is done-done** (code + tests + ADRs + documentation)
 

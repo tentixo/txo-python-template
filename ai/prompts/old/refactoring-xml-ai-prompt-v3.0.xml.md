@@ -40,7 +40,7 @@
             2. Check PyCharm inspection results (if provided)
             3. Identify patterns not matching ADRs
             4. Review module-dependency-diagram.md for architecture issues
-            5. CREATE ai/to-do.md with all issues (MANDATORY per ADR-B015)
+            5. CREATE ai/TODO.md with all issues (MANDATORY per ADR-B015)
             6. Estimate effort and identify breaking changes
             7. Present assessment to user for approval before starting
         </ai_assessment_mandatory>
@@ -59,7 +59,7 @@
 
     <ai_instructions>
         <instruction priority="critical">
-            Track ALL changes in ai/to-do.md (MANDATORY per ADR-B015):
+            Track ALL changes in ai/TODO.md (MANDATORY per ADR-B015):
             - Task status: pending/in-progress/completed
             - File and line numbers
             - Validation criteria
@@ -647,7 +647,7 @@
         <step>Create branch for work (git checkout -b refactor-v3.2)</step>
         <step>Commit frequently with clear messages</step>
         <step>Test each phase independently before proceeding</step>
-        <step>Keep ai/to-do.md updated (enables resume)</step>
+        <step>Keep ai/TODO.md updated (enables resume)</step>
         <step>If issues: git checkout main OR git revert specific commits</step>
     </rollback_plan>
 

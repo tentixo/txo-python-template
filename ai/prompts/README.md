@@ -53,17 +53,17 @@ Start
 
 ## 📊 Detailed Comparison
 
-| Aspect | Script Creating | Refactoring |
-|--------|----------------|----------------------|
-| **Prompt File** | ai-prompt-template_v3.2.md | refactoring-ai-prompt_v3.2.md |
-| **Output** | 1 script + config + tests + docs | Multiple utils files + ADRs + tests |
-| **Audience** | Less experienced | Experienced |
-| **Duration** | 2-4 hours | 20-60 hours |
-| **Documentation** | README + in-depth (mandatory) | ai/to-do.md + ADRs (mandatory), user docs optional |
-| **Tests** | Ask user (comprehensive/smoke/none) | Mandatory (refactoring requires tests) |
-| **ADRs** | Reference only | May add/update ADRs |
-| **Validation** | TXO compliance + optional PyCharm | Comprehensive ADR compliance |
-| **Resumability** | Single session typical | Multi-session with checkpoints |
+| Aspect            | Script Creating                     | Refactoring                                        |
+|-------------------|-------------------------------------|----------------------------------------------------|
+| **Prompt File**   | ai-prompt-template_v3.2.md          | refactoring-ai-prompt_v3.2.md                      |
+| **Output**        | 1 script + config + tests + docs    | Multiple utils files + ADRs + tests                |
+| **Audience**      | Less experienced                    | Experienced                                        |
+| **Duration**      | 2-4 hours                           | 20-60 hours                                        |
+| **Documentation** | README + in-depth (mandatory)       | ai/TODO.md + ADRs (mandatory), user docs optional |
+| **Tests**         | Ask user (comprehensive/smoke/none) | Mandatory (refactoring requires tests)             |
+| **ADRs**          | Reference only                      | May add/update ADRs                                |
+| **Validation**    | TXO compliance + optional PyCharm   | Comprehensive ADR compliance                       |
+| **Resumability**  | Single session typical              | Multi-session with checkpoints                     |
 
 ---
 
@@ -109,14 +109,14 @@ cp ai/prompts/ai-prompt-template_v3.2.md my-script-prompt.md
 # 3. Start with assessment command:
 #    "Read the refactoring prompt and start Phase 0 assessment"
 
-# 4. AI will create ai/to-do.md with all issues
+# 4. AI will create ai/TODO.md with all issues
 
 # 5. Progress through priorities one-by-one
 ```
 
 **Key Phases**:
-- Phase 0: Assessment (create ai/to-do.md - MANDATORY)
-- Phase 1-N: Refactor by priority (update ai/to-do.md status)
+- Phase 0: Assessment (create ai/TODO.md - MANDATORY)
+- Phase 1-N: Refactor by priority (update ai/TODO.md status)
 - Validation: Continuous (after each priority)
 - Documentation: Update ADRs if new patterns, user docs if needed
 
@@ -143,14 +143,14 @@ cp ai/prompts/ai-prompt-template_v3.2.md my-script-prompt.md
 **DO**:
 - ✅ Run PyCharm inspection first (finds issues across codebase)
 - ✅ Read module-dependency-diagram.md (understand architecture)
-- ✅ Create ai/to-do.md (MANDATORY per ADR-B015)
+- ✅ Create ai/TODO.md (MANDATORY per ADR-B015)
 - ✅ Work priority-by-priority (enables breaks/resume)
 - ✅ Update ADRs if new patterns discovered
 - ✅ Comprehensive testing (can't refactor without tests)
 
 **DON'T**:
 - ❌ Skip Phase 0 assessment (need to understand current state)
-- ❌ Skip ai/to-do.md creation (lose track without it)
+- ❌ Skip ai/TODO.md creation (lose track without it)
 - ❌ Rush through priorities (test each before next)
 - ❌ Skip ADR updates (future refactorings need patterns)
 
@@ -200,11 +200,12 @@ For large refactorings that span multiple sessions, see:
 1. `CLAUDE.md` - TXO development lifecycle and commands
 2. `ai/decided/txo-business-adr_v3.2.md` - Business rules
 3. `ai/decided/txo-technical-standards_v3.2.md` - Technical patterns
-4. `module-dependency-diagram.md` - Architecture layers
+4. `ai/decided/txo-ai-adr_v3.2.md` - AI patterns
+5. `module-dependency-diagram.md` - Architecture layers
 
 **After Using Prompts, Update**:
 1. `ai/reports/release-notes-v*.md` - Document what changed
-2. `ai/to-do.md` - Track refactoring progress (if applicable)
+2. `ai/TODO.md` - Track refactoring progress (if applicable)
 3. ADRs - If new patterns discovered
 
 ---

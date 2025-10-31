@@ -570,7 +570,7 @@ python -m src.try_me_script demo test
 
 ### New Documents (3)
 
-1. **ai/to-do.md** - Complete refactoring task tracking
+1. **ai/TODO.md** - Complete refactoring task tracking
 2. **ai/reports/adr-gap-analysis_v3.2.md** - ADR coverage analysis
 3. **ai/reports/adr-compliance-verification_v3.2.md** - Compliance verification
 

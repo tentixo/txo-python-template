@@ -1,9 +1,10 @@
-# TXO Utils Quick Reference v3.1
+# TXO Utils Quick Reference v3.2
 
 > **🚨 DO NOT INVENT THESE FUNCTIONS - THEY ALREADY EXIST**
 >
 > Use this reference to see what's available in `utils/` before writing new code.
 > All functions follow TXO Business ADRs and Technical Standards.
+> **v3.2 NEW**: Logger strict mode, AsyncOperationResult, CircuitBreaker.stats, Adaptive rate limiting
 
 ---
 
@@ -46,8 +47,12 @@ with ConfigContext("txo", "prod") as config:
 ```python
 from utils.logger import setup_logger
 
-# Singleton logger with mandatory security redaction
-logger = setup_logger()  # Will sys.exit(1) if config files missing
+# v3.2: Logger with strict mode for testing
+# Normal usage - exits on error (infrastructure exception per ADR-T012)
+logger = setup_logger()  # Default: strict=False, exits if config missing
+
+# Testing usage - raises exceptions instead of exit
+logger = setup_logger(strict=True)  # For unit tests, raises LoggerConfigurationError/LoggerSecurityError
 
 # Hierarchical context logging
 context = f"[{env_type.title()}/{company_name}/{api_name}]"
@@ -157,12 +162,42 @@ response = api.put(url, json=data, **kwargs) -> Any
 response = api.delete(url, **kwargs) -> Any
 
 # Handles automatically:
-# - Rate limiting (if configured)
-# - Circuit breaker (if configured)
+# - Rate limiting (if configured) - v3.2: Adaptive adjustment from API headers
+# - Circuit breaker (if configured) - v3.2: With statistics
 # - Retries with exponential backoff
 # - Token redaction in logs
-# - Async operations (202 polling)
+# - Async operations (202 polling) - v3.2: Returns AsyncOperationResult
 ```
+
+### AsyncOperationResult (`utils.rest_api_helpers`)
+**v3.2 NEW**: Type-safe wrapper for completed async operations
+
+```python
+from utils.rest_api_helpers import AsyncOperationResult
+
+# Returned by _execute_request() for 202 Accepted responses
+# Provides Response-compatible interface without mutation
+
+# Public API methods (get, post, etc.) handle both Response and AsyncOperationResult
+result = api.post(url, json=data)  # May return AsyncOperationResult for async ops
+data = result.json() if result.content else {}  # Works for both types
+
+# Properties available:
+# - .json() → Dict: Data payload
+# - .ok → bool: Success check (200-299)
+# - .content → bytes: JSON as bytes
+# - .text → str: JSON as string
+# - .status_code → int: HTTP status
+# - .data → Dict: Actual data
+# - .original_response → Response: Original 202 (if async)
+
+# Type-aware code can distinguish:
+if isinstance(result, AsyncOperationResult):
+    print(f"Async operation completed: {result.data}")
+```
+
+**Purpose**: Eliminates response._content mutation (ADR-T004 anti-pattern)
+**Compatibility**: Fully backward compatible with existing code
 
 ### OAuth Authentication (`utils.oauth_helpers`)
 
@@ -203,7 +238,24 @@ breaker.record_success()
 
 # After failed API call
 breaker.record_failure()
+
+# v3.2 NEW: Get circuit breaker statistics
+stats = breaker.stats  # Returns dict with metrics
+logger.info(f"Circuit state: {stats['state']}, failure rate: {stats['failure_rate']:.1%}")
+
+# Available stats (9 metrics):
+# - state: Current state (closed/open/half-open)
+# - consecutive_failures: Sequential failures
+# - total_requests: Lifetime request count
+# - total_failures: Lifetime failure count
+# - failure_rate: Percentage (total_failures / total_requests)
+# - time_in_current_state: Seconds in current state
+# - timeout_seconds: Configured timeout
+# - last_failure_ago: Seconds since last failure (or None)
+# - failure_threshold: Configured threshold
 ```
+
+**v3.2 Enhancement**: State transition logging and statistics for observability
 
 ### Retry Logic (`utils.api_common`)
 
@@ -450,7 +502,17 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 
 ## Version History
 
-### v3.1.1 (Current)
+### v3.2 (Current)
+
+- **Logger**: Added strict parameter (setup_logger(strict=False) for testing)
+- **AsyncOperationResult**: New class for type-safe async operation handling
+- **CircuitBreaker**: Added .stats property with 9 metrics for monitoring
+- **Rate Limiting**: Adaptive adjustment from API headers (automatic)
+- **Patterns**: @staticmethod for helper methods that don't use self
+- **Infrastructure Exception**: Logger may call sys.exit() (ADR-T012)
+- Updated all features to reflect v3.2 refactoring improvements
+
+### v3.1.1
 
 - Added multi-sheet Excel support with dict of DataFrames auto-detection
 - Enhanced smart format validation for Excel multi-sheet patterns

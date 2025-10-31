@@ -35,8 +35,6 @@
 
 **AI Should IGNORE** (per ADR-AI002):
 - */old/ directories (superseded versions)
-- */archive/ directories (legacy naming)
-- refactoring-xml-ai-prompt_v3.0.xml.md (old format, superseded)
 - ai/working/ docs (temporary scaffolding from this session)
 
 ---
@@ -80,7 +78,7 @@
 - **ai/working/**: SESSION-SUMMARY_DATE.md, DRAFTS, CHECKLISTS
 
 ### Archives (Ignored by AI)
-- ***/old/**: Superseded versions (user maintains)
+- `*/old/`: Superseded versions (user maintains)
 - AI reads only if explicitly instructed
 
 ---
@@ -104,11 +102,13 @@
 - ✅ Example docs renamed to v3.2
 
 ### Hygiene ✅ DONE (100%)
-- ✅ All TXO 10-step lifecycle steps (1-10)
+- ✅ All TXO 10-step lifecycle steps (1-10) INCLUDING Step 6
+- ✅ Step 6: utils-quick-reference_v3.2.md updated with v3.2 additions
 - ✅ All versions synchronized to v3.2
 - ✅ Document organization complete
 - ✅ No TODO comments remaining
 - ✅ All tests passing
+- ✅ Prevention system implemented (Step 6 can't be forgotten in future)
 - ✅ Ready for git commit/tag
 
 ---

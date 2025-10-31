@@ -25,14 +25,14 @@ This workflow pattern enables refactorings that span days or weeks.
 
 **Create checkpoints at these milestones**:
 
-1. **Phase 0 Complete** → `ai/to-do.md` created (MANDATORY per ADR-B015)
-2. **After each priority** → Update `ai/to-do.md` with status
+1. **Phase 0 Complete** → `ai/TODO.md` created (MANDATORY per ADR-B015)
+2. **After each priority** → Update `ai/TODO.md` with status
 3. **End of session** → Create `ai/reports/session-summary_YYYY-MM-DD.md`
 4. **ADR updates** → Commit ADR changes separately
 5. **Major milestones** → Git commits with clear messages
 
 **Checkpoint Documents** (External Memory):
-- `ai/to-do.md` - Current task status, what's next
+- `ai/TODO.md` - Current task status, what's next
 - `ai/reports/refactor_v*.md` - Original plan and analysis
 - `ai/reports/adr-gap-analysis_v*.md` - ADR coverage analysis
 - `ai/reports/adr-compliance-verification_v*.md` - Compliance status
@@ -45,7 +45,7 @@ This workflow pattern enables refactorings that span days or weeks.
 
 ```
 1. AI reads state documents:
-   - ai/to-do.md (what's done, what's pending)
+   - ai/TODO.md (what's done, what's pending)
    - Latest session summary (decisions made)
    - ADR updates (new patterns added)
 
@@ -54,11 +54,11 @@ This workflow pattern enables refactorings that span days or weeks.
    - Check last modified files compile
 
 3. AI asks user:
-   - "Continue from Priority X (next pending in ai/to-do.md)?"
+   - "Continue from Priority X (next pending in ai/TODO.md)?"
    - "Or reassess current state first?"
 
 4. AI proceeds:
-   - Update ai/to-do.md status to in-progress
+   - Update ai/TODO.md status to in-progress
    - Work on task
    - Validate
    - Mark completed
@@ -68,7 +68,7 @@ This workflow pattern enables refactorings that span days or weeks.
 **Resume Command Template**:
 ```
 "I'm resuming the v3.2 refactoring. Please:
-1. Read ai/to-do.md to see current status
+1. Read ai/TODO.md to see current status
 2. Read ai/reports/session-summary_2025-10-29.md for last session
 3. Tell me what's completed and what's next
 4. Continue with the next pending priority"
@@ -76,9 +76,9 @@ This workflow pattern enables refactorings that span days or weeks.
 
 ---
 
-## 🎯 ai/to-do.md Pattern (Mandatory)
+## 🎯 ai/TODO.md Pattern (Mandatory)
 
-**Per ADR-B015**, framework refactoring MUST create and maintain ai/to-do.md
+**Per ADR-B015**, framework refactoring MUST create and maintain ai/TODO.md
 
 **Template Structure**:
 
@@ -91,9 +91,9 @@ This workflow pattern enables refactorings that span days or weeks.
 
 ## PHASE 1: Planning & ADR Updates
 
-### ✅ Task 1.1: Create ai/to-do.md
+### ✅ Task 1.1: Create ai/TODO.md
 **Status**: COMPLETED
-**File**: ai/to-do.md
+**File**: ai/TODO.md
 This document.
 
 ### 🔄 Task 1.2: Add Memory Optimization ADR
@@ -163,11 +163,11 @@ This document.
 
 **Start With**:
 - Priority 4: OAuth Config Hard-Fail Fix (estimated 30 min)
-- Read: ai/to-do.md for current status
+- Read: ai/TODO.md for current status
 - Check: Last commits compile correctly
 
 **Context Preserved In**:
-- ai/to-do.md (updated with completed tasks)
+- ai/TODO.md (updated with completed tasks)
 - This summary (decisions and issues)
 - ADR-T012 (infrastructure exception documented)
 ```
@@ -219,14 +219,14 @@ Don't: Read entire codebase upfront
 **Sessions**: Could have been 2-3 sessions with resume
 
 **Checkpoint Documents Created**:
-1. `ai/to-do.md` - 16 tasks with status tracking
+1. `ai/TODO.md` - 16 tasks with status tracking
 2. `ai/reports/adr-gap-analysis_v3.2.md` - Initial assessment
 3. `ai/reports/adr-compliance-verification_v3.2.md` - Final validation
 4. `ai/reports/release-notes-v3.2.md` - Comprehensive changes log
 5. ADR updates: ADR-T011, ADR-T012, enhancements to ADR-T004, ADR-B004
 
 **What Enabled Resume**:
-- ai/to-do.md showed exactly what was done (15/16 after first session)
+- ai/TODO.md showed exactly what was done (15/16 after first session)
 - ADR documents preserved decisions
 - Git commits had clear messages
 - Could resume at any priority boundary
@@ -235,7 +235,7 @@ Don't: Read entire codebase upfront
 ```
 End of Session 1: Completed Priorities 1-7 (high + medium)
 Session 2 Start:
-  - Read ai/to-do.md: Shows 8-10 pending (low priority)
+  - Read ai/TODO.md: Shows 8-10 pending (low priority)
   - Read session-summary: Decisions about logger, AsyncOperationResult
   - Continue with Priority 8 (path helpers)
   - No re-analysis needed, jump right in
@@ -249,7 +249,7 @@ When resuming refactoring work:
 
 ```bash
 # 1. Check state
-cat ai/to-do.md | grep -A2 "in_progress\|pending" | head -20
+cat ai/TODO.md | grep -A2 "in_progress\|pending" | head -20
 
 # 2. Verify last changes work
 python -m py_compile utils/*.py
@@ -259,7 +259,7 @@ python -m src.try_me_script demo test  # Quick smoke test
 cat ai/reports/session-summary_LATEST.md
 
 # 4. Continue
-# Tell AI: "Resume refactoring from Priority X per ai/to-do.md"
+# Tell AI: "Resume refactoring from Priority X per ai/TODO.md"
 ```
 
 ---
@@ -297,7 +297,7 @@ cat ai/reports/session-summary_LATEST.md
 
 ### What Worked Well
 
-1. **ai/to-do.md tracking** - Essential for managing 16 tasks
+1. **ai/TODO.md tracking** - Essential for managing 16 tasks
 2. **Priority ranking** - High→Medium→Low enabled smart breaks
 3. **Phase-by-phase approach** - Could validate after each priority
 4. **PyCharm inspection** - Found issues we missed manually
@@ -313,9 +313,9 @@ cat ai/reports/session-summary_LATEST.md
 
 ### Recommendations for Future
 
-1. **Always start with Phase 0** (assessment + ai/to-do.md)
+1. **Always start with Phase 0** (assessment + ai/TODO.md)
 2. **Request PyCharm inspection upfront** (finds cross-cutting issues)
-3. **Update ai/to-do.md religiously** (enables resume anywhere)
+3. **Update ai/TODO.md religiously** (enables resume anywhere)
 4. **Create session summaries** (preserve decisions and context)
 5. **Test after each priority** (don't batch testing)
 6. **Discuss trade-offs explicitly** (better than hiding them)
@@ -333,7 +333,7 @@ cat ai/reports/session-summary_LATEST.md
 
 2. **Automated checkpoint creation**
    - AI auto-creates session summary
-   - Auto-updates ai/to-do.md
+   - Auto-updates ai/TODO.md
    - Git auto-commits at boundaries
 
 3. **Progress dashboards**
@@ -351,7 +351,7 @@ cat ai/reports/session-summary_LATEST.md
 ## 📚 Related Documents
 
 - **Refactoring Prompt**: `ai/prompts/refactoring-xml-ai-prompt_v3.2.xml.md`
-- **ADR-B015**: Documentation requirements (includes ai/to-do.md mandate)
+- **ADR-B015**: Documentation requirements (includes ai/TODO.md mandate)
 - **CLAUDE.md**: TXO development lifecycle
 - **module-dependency-diagram.md**: Architecture layers and dependencies
 

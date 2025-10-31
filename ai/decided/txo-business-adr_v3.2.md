@@ -1374,6 +1374,30 @@ Phase N+3: Validation
 Documentation: Only if user-facing changes
 ```
 
+### TXO 10-Step Lifecycle Applicability
+
+**Script Creating Workflow**:
+- **Steps 1-5**: Discuss, Decision, Todo, Code, Validate (ALL apply)
+- **Step 6**: Utils Reference - **NOT applicable** (not modifying utils/)
+- **Steps 7-10**: AI Prompts, Documentation, Release Notes, Leftovers (ALL apply)
+
+**Refactoring Workflow**:
+- **Steps 1-5**: ALL apply
+- **Step 6**: Utils Reference - **MANDATORY if utils/ modified**
+  - Check: Did we add/change functions, classes, methods, properties?
+  - Action: Update ai/decided/utils-quick-reference_v{X}.md
+  - **Critical**: Often forgotten - explicitly verify before done-done
+- **Steps 7-10**: ALL apply
+
+**Step 6 Trigger for Refactoring**:
+- Added new functions or changed signatures
+- Created new classes (e.g., AsyncOperationResult)
+- Added properties (e.g., CircuitBreaker.stats)
+- Implemented stub functions (e.g., update_from_headers)
+- Changed parameters (e.g., setup_logger(strict=False))
+
+**If YES to any**: Update utils-quick-reference is MANDATORY
+
 ### Template Requirements
 
 **README.md Template**:
@@ -1439,7 +1463,7 @@ Documentation: Only if user-facing changes
 - Consistent documentation quality across all scripts
 - Users can succeed independently (reduces support burden)
 - Maintainers can extend without original author
-- Refactoring work is resumable (ai/to-do.md enables breaks)
+- Refactoring work is resumable (ai/TODO.md enables breaks)
 - Clear expectations for AI assistants
 - Documentation hierarchy reflects value priorities
 
@@ -1451,7 +1475,7 @@ Documentation: Only if user-facing changes
 **Mitigation**:
 - Templates make documentation faster
 - Scale in-depth docs to script complexity
-- ai/to-do.md saves time in long refactorings (prevents re-work)
+- ai/TODO.md saves time in long refactorings (prevents re-work)
 - AI generates documentation, not manual work
 
 ### Validation

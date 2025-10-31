@@ -11,7 +11,7 @@
 
 ### ✅ Task 1.1: Create Comprehensive Todo Document
 **Status**: COMPLETED
-**File**: `ai/to-do.md`
+**File**: `ai/TODO.md`
 **Duration**: 1 hour
 
 This document.

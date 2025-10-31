@@ -13,7 +13,7 @@
 ```
 1. Discuss Code/Issue →
 2. Decision to ADR/Tech Standard →
-3. Create ai/to-do.md for refactoring → 
+3. Create ai/TODO.md for refactoring → 
 4. Working Code →
 5. Validation (ADR + Tech Standards) →
 6. Add Functions to Utils Reference →

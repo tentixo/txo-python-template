@@ -376,6 +376,11 @@ Before using this template, verify:
 
 **🚨 CRITICAL: This phase is MANDATORY. You cannot proceed to documentation without validation.**
 
+**Note on TXO 10-Step Lifecycle**:
+- Script Creating workflow: Steps 1-5, 7-10 apply
+- **Step 6 (Utils Reference): N/A** (not modifying utils/ framework)
+- Step 6 is for Refactoring workflow only
+
 ### **Mandatory TXO Compliance Check**
 
 **Step 1: Run Automated Validation**
