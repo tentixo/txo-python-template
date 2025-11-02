@@ -480,34 +480,34 @@ python -m src.try_me_script demo test
 
 ### Code Changes
 
-| Metric | Value |
-|--------|-------|
-| Files Modified | 10 (9 utils + 1 src) |
-| Files Created | 6 (3 tests + 3 reports) |
-| Lines Added | ~1,200 |
-| Lines Removed | ~350 |
-| Net Change | +850 lines |
-| Complex Code Reduced | -200 lines (-60%) |
-| New Helper Methods | 9 |
-| New Test Scenarios | 25 |
+| Metric               | Value                   |
+|----------------------|-------------------------|
+| Files Modified       | 10 (9 utils + 1 src)    |
+| Files Created        | 6 (3 tests + 3 reports) |
+| Lines Added          | ~1,200                  |
+| Lines Removed        | ~350                    |
+| Net Change           | +850 lines              |
+| Complex Code Reduced | -200 lines (-60%)       |
+| New Helper Methods   | 9                       |
+| New Test Scenarios   | 25                      |
 
 ### Quality Improvements
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| ADR Compliance | 85% | 100% | +15% |
-| Testability | 60% | 95% | +35% |
-| Method Complexity | 111 avg | 44 avg | -60% |
-| Exception Specificity | 70% | 100% | +30% |
+| Metric                | Before  | After  | Change |
+|-----------------------|---------|--------|--------|
+| ADR Compliance        | 85%     | 100%   | +15%   |
+| Testability           | 60%     | 95%    | +35%   |
+| Method Complexity     | 111 avg | 44 avg | -60%   |
+| Exception Specificity | 70%     | 100%   | +30%   |
 
 ### Time Investment
 
-| Phase | Tasks | Time |
-|-------|-------|------|
-| Phase 1: Planning | 3 | 4 hours |
-| Phase 2: Refactoring | 10 | 10 hours |
-| Phase 3: Validation | 3 | 2 hours |
-| **Total** | **16** | **16 hours** |
+| Phase                | Tasks  | Time         |
+|----------------------|--------|--------------|
+| Phase 1: Planning    | 3      | 4 hours      |
+| Phase 2: Refactoring | 10     | 10 hours     |
+| Phase 3: Validation  | 3      | 2 hours      |
+| **Total**            | **16** | **16 hours** |
 
 ---
 

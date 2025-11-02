@@ -1040,8 +1040,8 @@ installation-guide_v1.0.md → installation-guide_v1.0.1.md
 # Current structure
 ai/decided/
 ├── txo-business-adr_v3.3.md          # Current
-├── txo-technical-standards_v3.3.md   # Current
-├── utils-quick-reference_v3.3.md     # Current
+├── txo-technical-standards_v3.2.md   # Current
+├── utils-quick-reference_v3.2.md     # Current
 └── old/                               # AI IGNORES this
     ├── txo-business-adr_v3.1.md       # Previous
     └── adr_v3.0.md                    # Legacy format

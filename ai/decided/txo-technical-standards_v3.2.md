@@ -874,14 +874,14 @@ class ProcessingResults:
 
 Use this matrix to decide on `__slots__` usage:
 
-| Criteria | Use __slots__ | Skip __slots__ |
-|----------|---------------|----------------|
-| **Instance Count** | >1000 instances | <100 instances |
-| **Creation Frequency** | Tight loops, high-frequency | One-time setup |
-| **Attribute Flexibility** | Fixed attributes known | May need dynamic attrs |
-| **Default Values** | Can use manual __init__ | Need dataclass defaults |
-| **Inheritance** | Simple or no inheritance | Complex inheritance |
-| **Memory Constraints** | Memory-sensitive application | Memory not a concern |
+| Criteria                  | Use __slots__                | Skip __slots__          |
+|---------------------------|------------------------------|-------------------------|
+| **Instance Count**        | >1000 instances              | <100 instances          |
+| **Creation Frequency**    | Tight loops, high-frequency  | One-time setup          |
+| **Attribute Flexibility** | Fixed attributes known       | May need dynamic attrs  |
+| **Default Values**        | Can use manual __init__      | Need dataclass defaults |
+| **Inheritance**           | Simple or no inheritance     | Complex inheritance     |
+| **Memory Constraints**    | Memory-sensitive application | Memory not a concern    |
 
 ### Examples from TXO Codebase
 

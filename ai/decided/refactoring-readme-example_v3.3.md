@@ -82,13 +82,13 @@ TXO scripts generate files with consistent patterns:
 
 ### Where Files Go
 
-| Directory | UTC Timestamp? | Purpose | Example |
-|-----------|----------------|---------|---------|
-| `output/` | ✅ Always | Final results, reports | `demo-test-report_2025-11-01T143022Z.xlsx` |
-| `tmp/` | ✅ Usually | Temporary files | `demo-test-cache_2025-11-01T143022Z.json` |
-| `generated_payloads/` | ❌ Never | For human validation | `demo-test-create-user.json` |
-| `payloads/` | ❌ Never | Validated, ready to send | `demo-test-create-user.json` |
-| `logs/` | ✅ Always | Debug logs | `demo-test-script_2025-11-01T143022Z.log` |
+| Directory             | UTC Timestamp? | Purpose                  | Example                                    |
+|-----------------------|----------------|--------------------------|--------------------------------------------|
+| `output/`             | ✅ Always       | Final results, reports   | `demo-test-report_2025-11-01T143022Z.xlsx` |
+| `tmp/`                | ✅ Usually      | Temporary files          | `demo-test-cache_2025-11-01T143022Z.json`  |
+| `generated_payloads/` | ❌ Never        | For human validation     | `demo-test-create-user.json`               |
+| `payloads/`           | ❌ Never        | Validated, ready to send | `demo-test-create-user.json`               |
+| `logs/`               | ✅ Always       | Debug logs               | `demo-test-script_2025-11-01T143022Z.log`  |
 
 **Why timestamps?**
 - Each run creates unique file (no overwrites)
@@ -351,7 +351,7 @@ ai/reports/old/          # Superseded reports
 ```bash
 # When v3.4 is created, user archives v3.3
 mkdir -p ai/decided/old
-mv ai/decided/utils-quick-reference_v3.3.md ai/decided/old/
+mv ai/decided/utils-quick-reference_v3.2.md ai/decided/old/
 ```
 
 **AI behavior**: AI assistants automatically ignore `**/old/` directories unless explicitly instructed

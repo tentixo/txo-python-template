@@ -528,13 +528,13 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 
 ### Quick Reference Table
 
-| Directory | UTC Timestamp? | Org-Env Pattern? | Method | RFC 2119 |
-|-----------|----------------|------------------|--------|----------|
-| `Dir.OUTPUT` | ✅ YES | ✅ YES | `save_with_timestamp(..., add_timestamp=True)` | **MUST** |
-| `Dir.TMP` | ✅ YES | ✅ YES | `save_with_timestamp(..., add_timestamp=True)` | **SHOULD** |
-| `Dir.GENERATED_PAYLOADS` | ❌ NO | ✅ YES | `save()` | **MUST NOT** |
-| `Dir.PAYLOADS` | ❌ NO | ✅ YES | Manual move | **MUST NOT** |
-| `Dir.WSDL` | ❌ NO | ❌ NO | `save()` | **MUST NOT** |
+| Directory                | UTC Timestamp? | Org-Env Pattern? | Method                                         | RFC 2119     |
+|--------------------------|----------------|------------------|------------------------------------------------|--------------|
+| `Dir.OUTPUT`             | ✅ YES          | ✅ YES            | `save_with_timestamp(..., add_timestamp=True)` | **MUST**     |
+| `Dir.TMP`                | ✅ YES          | ✅ YES            | `save_with_timestamp(..., add_timestamp=True)` | **SHOULD**   |
+| `Dir.GENERATED_PAYLOADS` | ❌ NO           | ✅ YES            | `save()`                                       | **MUST NOT** |
+| `Dir.PAYLOADS`           | ❌ NO           | ✅ YES            | Manual move                                    | **MUST NOT** |
+| `Dir.WSDL`               | ❌ NO           | ❌ NO             | `save()`                                       | **MUST NOT** |
 
 ### Complete Examples by Directory
 

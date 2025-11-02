@@ -482,7 +482,7 @@ TXO development follows a three-stage completion workflow, but timing was ambigu
 ```bash
 # Step 1: Bump all version suffixes (MUST be first)
 git mv ai/decided/txo-business-adr_v3.2.md ai/decided/txo-business-adr_v3.3.md
-git mv ai/decided/utils-quick-reference_v3.2.md ai/decided/utils-quick-reference_v3.3.md
+git mv ai/decided/utils-quick-reference_v3.2.md ai/decided/utils-quick-reference_v3.2.md
 # ... (all _v3.2 → _v3.3 files)
 
 # Step 2: Update all cross-references

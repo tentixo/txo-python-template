@@ -76,13 +76,13 @@ logger.error(f"{context} Rate limit exceeded, retrying in {delay}s")
 
 **Rationale**: Different directories serve different purposes
 
-| Directory | UTC? | Rationale |
-|-----------|------|-----------|
-| `output/` | MUST | Audit trail, non-destructive, traceability |
-| `tmp/` | SHOULD | Multi-run debugging (flexible) |
-| `generated_payloads/` | MUST NOT | Human validation workflow (stable names) |
-| `payloads/` | MUST NOT | Manual curation (stable references) |
-| `wsdl/` | MUST NOT | Service versioning (not time-based) |
+| Directory             | UTC?     | Rationale                                  |
+|-----------------------|----------|--------------------------------------------|
+| `output/`             | MUST     | Audit trail, non-destructive, traceability |
+| `tmp/`                | SHOULD   | Multi-run debugging (flexible)             |
+| `generated_payloads/` | MUST NOT | Human validation workflow (stable names)   |
+| `payloads/`           | MUST NOT | Manual curation (stable references)        |
+| `wsdl/`               | MUST NOT | Service versioning (not time-based)        |
 
 **Implementation**:
 ```python
@@ -346,11 +346,11 @@ data_handler.save_with_timestamp(
 ```bash
 # When creating v3.4, archive v3.3
 mkdir -p ai/decided/old
-mv ai/decided/utils-quick-reference_v3.3.md ai/decided/old/
+mv ai/decided/utils-quick-reference_v3.2.md ai/decided/old/
 
 # Git tracks the move
-git add ai/decided/old/utils-quick-reference_v3.3.md
-git rm ai/decided/utils-quick-reference_v3.3.md
+git add ai/decided/old/utils-quick-reference_v3.2.md
+git rm ai/decided/utils-quick-reference_v3.2.md
 git commit -m "Archive v3.3 docs, promote v3.4"
 ```
 

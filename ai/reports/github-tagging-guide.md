@@ -1,14 +1,5 @@
 # Complete Guide to Git Tagging and GitHub Releases
 
-## Table of Contents
-1. [Understanding Git Tags vs GitHub Releases](#understanding-git-tags-vs-github-releases)
-2. [Tagging Best Practices](#tagging-best-practices)
-3. [Creating Tags in PyCharm](#creating-tags-in-pycharm)
-4. [Pushing Tags to GitHub](#pushing-tags-to-github)
-5. [Creating GitHub Releases](#creating-github-releases)
-6. [Troubleshooting](#troubleshooting)
-7. [Internal vs Public Versioning Strategy](#internal-vs-public-versioning-strategy)
-
 ## The TXO Workflow (Recommended)
 
 **TL;DR**: Tag the merge commit on main AFTER the PR is merged.

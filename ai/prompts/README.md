@@ -1,4 +1,4 @@
-# TXO AI Prompts Guide v3.2
+# TXO AI Prompts Guide v3.3
 
 **Purpose**: Guide for selecting the right AI prompt for your task
 **Audience**: TXO users working with AI assistants
@@ -45,7 +45,7 @@ Start
   ├─ Creating new script? ───────> ai-prompt-template_v3.3.md
   |                                  └─ Generates: script + tests + docs
   |
-  ├─ Improving utils/ framework? ──> refactoring-xml-ai-prompt_v3.2.xml.md
+  ├─ Improving utils/ framework? ──> refactoring-xml-ai-prompt_v3.3.xml.md
   |                                  └─ Generates: refactored utils + tests + ADRs
   |
   └─ Multi-session work? ──────────> Reference: large-refactoring-workflow_v3.3.md
@@ -177,7 +177,7 @@ For large refactorings that span multiple sessions, see:
 - Token management (external memory)
 - Session summary pattern
 
-**Example**: Our v3.2 refactoring (16 tasks) used this pattern successfully
+**Example**: Our v3.3 refactoring (16 tasks) used this pattern successfully
 
 ---
 
@@ -190,7 +190,7 @@ For large refactorings that span multiple sessions, see:
 - [ ] Need user-facing documentation
 - [ ] Want AI to follow structured 8-phase workflow
 
-**Use refactoring-xml-ai-prompt_v3.2.xml.md when**:
+**Use refactoring-xml-ai-prompt_v3.3.xml.md when**:
 
 - [ ] Improving utils/ framework code
 - [ ] Fixing ADR violations across multiple files
@@ -265,7 +265,7 @@ Progress: Priority-by-priority, update ai/TODO.md
 
 ---
 
-**Version**: v3.2
+**Version**: v3.3
 **Last Updated**: 2025-10-29
 **Maintainer**: TXO Framework Team
 **Feedback**: Update prompts based on usage patterns and learnings

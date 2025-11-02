@@ -351,7 +351,7 @@ ai/reports/old/          # Superseded reports
 ```bash
 # When v3.4 is created, user archives v3.3
 mkdir -p ai/decided/old
-mv ai/decided/utils-quick-reference_v3.3.md ai/decided/old/
+mv ai/decided/utils-quick-reference_v3.2.md ai/decided/old/
 ```
 
 **AI behavior**: AI assistants automatically ignore `**/old/` directories unless explicitly instructed
