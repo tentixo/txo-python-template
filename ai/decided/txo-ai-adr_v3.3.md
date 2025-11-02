@@ -25,7 +25,7 @@ Users need visual signals to distinguish:
 **Use dual naming convention with visual distinction**:
 
 **kebab-case_v{version}.md** - Long-term, permanent, human-maintained:
-- Examples: `release-notes_v3.2.md`, `adr-gap-analysis_v3.2.md`
+- Examples: `release-notes_v3.3.md`, `adr-gap-analysis_v3.3.md`
 - Characteristics: Versioned, archived when superseded, human-editable
 - Survive to production, referenced in future work
 
@@ -38,7 +38,7 @@ Users need visual signals to distinguish:
 
 **Beginners see**:
 - `UPPERCASE.md` → "AI is working, I can skip these"
-- `kebab-case_v3.2.md` → "Important permanent docs, I should read"
+- `kebab-case_v3.3.md` → "Important permanent docs, I should read"
 
 **Clear separation**: Production docs vs working scaffolding
 
@@ -54,10 +54,10 @@ Users need visual signals to distinguish:
 ✅ ai/TODO.md (working, granular tasks)
 ✅ ai/PROJECT-STATUS.md (working, high-level status)
 ✅ ai/working/SESSION-SUMMARY_2025-10-29.md (temporary)
-✅ ai/reports/release-notes_v3.2.md (permanent)
-✅ ai/decided/txo-business-adr_v3.2.md (permanent)
+✅ ai/reports/release-notes_v3.3.md (permanent)
+✅ ai/decided/txo-business-adr_v3.3.md (permanent)
 
-❌ ai/AI-CONTEXT-BRIEF_v3.2.md (working docs don't get versions)
+❌ ai/AI-CONTEXT-BRIEF_v3.3.md (working docs don't get versions)
 ❌ ai/reports/ASSESSMENT-REPORT.md (permanent docs use kebab-case)
 ```
 
@@ -262,7 +262,7 @@ exception justified. Added ADR-T011 (memory optimization), ADR-T012
 (library boundaries). Implemented AsyncOperationResult wrapper.
 ```
 
-Becomes in release-notes_v3.2.md Version History:
+Becomes in release-notes_v3.3.md Version History:
 ```markdown
 ## Version History
 
@@ -398,14 +398,14 @@ TXO projects use semantic versioning. Per ADR-B013, "all documentation in a proj
 **Version Synchronization Rules**:
 
 1. **Rename files** to match project version (not just internal version)
-   - If project = v3.2, rename: `doc_v3.1.md` → `doc_v3.2.md`
+   - If project = v3.2, rename: `doc_v3.1.md` → `doc_v3.3.md`
 
 2. **Update internal version numbers**:
    - **Version:** v3.2 (in footer)
    - **Last Updated:** 2025-10-29
 
 3. **Update cross-references**:
-   - Change `utils-quick-reference_v3.1.md` → `utils-quick-reference_v3.2.md`
+   - Change `utils-quick-reference_v3.1.md` → `utils-quick-reference_v3.3.md`
    - Find/replace all _v3.1 references with _v3.2
 
 4. **Check for version variants**:
@@ -443,6 +443,132 @@ grep -r "_v3\.1" ai/decided/*.md
 
 ---
 
+## ADR-AI007: Done/Done-Done/Done-Done-Done Workflow
+
+**Status:** MANDATORY
+**Date:** 2025-11-02
+
+### Context
+
+TXO development follows a three-stage completion workflow, but timing was ambiguous for critical tasks like version suffix renaming. Without explicit guidance, developers might:
+- Forget to rename version suffixes before git commit
+- Update files during done-done causing confusion (referencing wrong version names)
+- Miss version synchronization entirely
+
+**Problem**: When should we rename `_v3.2` → `_v3.3` files? During active development or just before git operations?
+
+### Decision
+
+**Formalize three-stage workflow with explicit timing for version management**:
+
+#### **1. Done = Code Complete**
+- All code written and functional
+- Tests passing
+- Script/feature works as intended
+- **Files still use current version names** (e.g., _v3.2)
+
+#### **2. Done-Done = Documentation Complete**
+- ADRs updated
+- Utils reference updated
+- Prompts updated
+- README and in-depth-readme updated
+- Release notes written
+- **Work with current _v names throughout** (easier to find files during session)
+- **New files** can use new version (e.g., create `script-readme-example_v3.3.md`)
+
+#### **3. Done-Done-Done = Git Operations**
+**MANDATORY SEQUENCE** (first action before git commit):
+
+```bash
+# Step 1: Bump all version suffixes (MUST be first)
+git mv ai/decided/txo-business-adr_v3.2.md ai/decided/txo-business-adr_v3.3.md
+git mv ai/decided/utils-quick-reference_v3.2.md ai/decided/utils-quick-reference_v3.2.md
+# ... (all _v3.2 → _v3.3 files)
+
+# Step 2: Update all cross-references
+sed -i '' 's/_v3\.2\.md/_v3.3.md/g' CLAUDE.md README.md in-depth-readme.md ...
+
+# Step 3: Archive old versions to old/ (if creating new major versions)
+mkdir -p ai/decided/old
+git mv ai/decided/old-template_v3.2.md ai/decided/old/
+
+# Step 4: Git commit with comprehensive message
+git add .
+git commit -m "feat(framework): [comprehensive message following TXO pattern]"
+
+# Step 5: Git tag with annotated message
+git tag v3.3.0 -m "Version 3.3.0 - [release summary]"
+
+# Step 6: Push to main with tags
+git push origin main --tags
+```
+
+### Rationale
+
+**Why version bump at START of done-done-done:**
+
+1. **Clear boundary**: Done-done (content) vs done-done-done (git prep)
+2. **Explicit checkpoint**: First item on checklist, harder to forget
+3. **No confusion during done-done**: Reference files by current names while writing
+4. **Safe timing**: All content complete, renaming can't break active work
+5. **Before git**: Ensures renamed files in commit, preserves history with `git mv`
+
+**Why NOT during done-done:**
+- Confusing to reference files by new names while writing about them
+- Easy to miss updating cross-references if scattered across session
+- Harder to track which files need updating
+
+### Implementation
+
+**Done-Done-Done Checklist Template**:
+```markdown
+## Done-Done-Done Checklist
+
+- [ ] 1. Bump all version suffixes using `git mv` (preserves history)
+      - txo-business-adr_v3.2.md → _v3.3.md
+      - utils-quick-reference_v3.2.md → _v3.3.md
+      - script-ai-prompt-template_v3.2.md → _v3.3.md
+      - refactoring-ai-prompt_v3.2.md → _v3.3.md
+      - (list all files)
+- [ ] 2. Update all cross-references from _v3.2 to _v3.3
+      - CLAUDE.md
+      - README.md
+      - in-depth-readme.md
+      - All renamed files (internal references)
+- [ ] 3. Archive superseded versions to old/ (if applicable)
+- [ ] 4. Git commit with comprehensive message
+- [ ] 5. Git tag v3.3.0 with annotated message
+- [ ] 6. Push to main with --tags
+```
+
+### Consequences
+
+**Positive**:
+- Clear workflow with explicit timing
+- Prevents forgetting version bump before git commit
+- Systematic approach reduces errors
+- Preserves git history with `git mv`
+- Easy to resume if interrupted (checklist-driven)
+
+**Negative**:
+- Additional step before git operations
+- Must remember to update ALL cross-references
+- Manual process (not automated)
+
+**Mitigation**:
+- Document in ADR (this document)
+- Include in working document templates
+- Use sed/grep for bulk cross-reference updates
+- Add to done-done-done checklist in all working documents
+
+### Related ADRs
+
+- **ADR-AI006**: Version Synchronization Requirements (when to sync)
+- **ADR-B013**: Documentation Version Matching (why versions must match)
+- **ADR-AI001**: Dual Document Naming (version suffix convention)
+
+---
+
 ## Summary
 
 These AI Workflow ADRs address how AI assistants work WITH the TXO framework, not the framework itself. They complement business ADRs (organizational patterns) and technical ADRs (Python patterns).
@@ -453,6 +579,7 @@ These AI Workflow ADRs address how AI assistants work WITH the TXO framework, no
 3. **Completeness**: PROJECT-STATUS tracks done → done-done
 4. **Resumability**: AI-CONTEXT-BRIEF, TODO.md, session summaries
 5. **Version discipline**: Synchronize before done-done
+6. **Workflow timing**: Version bump at start of done-done-done (ADR-AI007)
 
 ---
 

@@ -35,17 +35,17 @@
    - Layer 3-6: All depend on Layer 2
    - **Key insight**: Logger is infrastructure (affects all layers)
 
-2. **ai/decided/txo-business-adr_v3.2.md** - Business rules
+2. **ai/decided/txo-business-adr_v3.3.md** - Business rules
    - Hard-fail philosophy (ADR-B003)
    - Documentation requirements (ADR-B015)
    - Naming conventions, secrets management
 
-3. **ai/decided/txo-technical-standards_v3.2.md** - Technical patterns
+3. **ai/decided/txo-technical-standards_v3.3.md** - Technical patterns
    - **NEW in v3.2**: ADR-T011 (Memory Optimization), ADR-T012 (Library Boundaries)
    - Exception hierarchy (ADR-T004)
    - Method complexity limits (ADR-T010)
 
-4. **ai/decided/utils-quick-reference_v3.2.md** - Available functions
+4. **ai/decided/utils-quick-reference_v3.3.md** - Available functions
    - Don't reinvent existing utilities
    - Understand what's already there
 
@@ -123,17 +123,17 @@
             - Architecture insights discovered
         </content>
         <benefit>Quick resume with minimal token usage</benefit>
-        <reference>ADR-AI003, large-refactoring-workflow_v3.2.md</reference>
+        <reference>ADR-AI003, large-refactoring-workflow_v3.3.md</reference>
     </document>
 </required-meta-documents>
 ```
 
 **Document Naming Convention** (per ADR-AI001):
 - **UPPERCASE.md** = AI working files (temporary, user can delete after done-done)
-- **kebab-case_v3.2.md** = Permanent docs (human-maintained, long-term)
+- **kebab-case_v3.3.md** = Permanent docs (human-maintained, long-term)
 - Visual signal: UPPERCASE immediately identifies AI scaffolding
 
-**See**: `ai/decided/txo-ai-adr_v3.2.md` for complete AI workflow standards
+**See**: `ai/decided/txo-ai-adr_v3.3.md` for complete AI workflow standards
 
 ### PROJECT-STATUS.md Template (Include TXO 10-Step Checklist)
 
@@ -141,6 +141,12 @@
 
 ```markdown
 ## Meta-Work: TXO 10-Step Lifecycle
+
+### Pre-Implementation (Optional)
+- [ ] **Step 0: Update Dependencies** (before major releases)
+  - Check: `uv pip list --outdated`
+  - Update: `uv remove pkg && uv add pkg` (updates pyproject.toml)
+  - Test: Verify imports and basic functionality
 
 ### Implementation Steps (1-5)
 - [ ] Step 1: Discuss - Analyzed issues
@@ -194,7 +200,7 @@
    - Estimated progress to done-done
 
 4. **Generate permanent assessment report**:
-   - Create: ai/reports/assessment_v3.2.md (kebab-case, permanent)
+   - Create: ai/reports/assessment_v3.3.md (kebab-case, permanent)
    - Contains: Detailed findings, ADR gaps, recommendations
    - Reference from TODO.md for full context
 
@@ -389,7 +395,7 @@ grep -r "config\.get(" utils/*.py  # Check each usage
 
 **For refactorings >10 hours or spanning multiple days:**
 
-See: `ai/prompts/large-refactoring-workflow_v3.2.md`
+See: `ai/prompts/large-refactoring-workflow_v3.3.md`
 
 **Checkpoint Strategy**:
 - ai/TODO.md updated continuously
@@ -414,12 +420,12 @@ See: `ai/prompts/large-refactoring-workflow_v3.2.md`
 
 ## 📚 Reference Documents
 
-**Successful Example**: See ai/reports/refactor_v3.2.md and our actual v3.2 refactoring
+**Successful Example**: See ai/reports/refactor_v3.3.md and our actual v3.2 refactoring
 - 16 tasks completed
 - 100% ADR compliance achieved
 - Demonstrates this workflow pattern working
 
-**Workflow Pattern**: large-refactoring-workflow_v3.2.md
+**Workflow Pattern**: large-refactoring-workflow_v3.3.md
 **Prompt Selection**: ai/prompts/README.md
 
 ---
@@ -501,7 +507,7 @@ Or mark Step 6 as N/A if no public API changes?"
 
 **AI can help**:
 ```
-"Generate git commit message from ai/reports/release-notes_v3.2.md
+"Generate git commit message from ai/reports/release-notes_v3.3.md
  following TXO pattern in github-tagging-guide.md"
 ```
 
@@ -524,8 +530,8 @@ git push origin main --tags
 
 ## 📚 Documentation Guidance for Refactoring
 
-**Template Examples** (ai/decided/*-example_v3.2.md):
-- `readme-example_v3.2.md` and `in-depth-readme-example_v3.2.md`
+**Template Examples** (ai/decided/*-example_v3.3.md):
+- `readme-example_v3.3.md` and `in-depth-readme-example_v3.3.md`
 - **Purpose**: TEMPLATES for Script Creating workflow (not project documentation)
 - **Refactoring action**: Update ONLY if patterns shown are outdated/incorrect
 - **Leave as-is**: If patterns still valid (don't update just for version number)

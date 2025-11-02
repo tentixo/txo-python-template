@@ -117,7 +117,7 @@ def save_results(config: Dict[str, Any], repos: List[Dict[str, Any]]) -> None:
     org_id = config["_org_id"]  # Hard fail if missing
     env_type = config["_env_type"]  # Hard fail if missing
 
-    filename = f"{org_id}-{env_type}-github_repos.json"
+    filename = f"{org_id}-{env_type}-github-repos.json"
 
     try:
         # v3.1: Use save_with_timestamp for UTC timestamp in TXO standard format
