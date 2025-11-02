@@ -10,7 +10,7 @@
 
 ### Step-by-step Setup
 1. Copy this prompt file and change its name
-2. **Read** `ai/decided/txo-business-adr_v3.2.md` and browse `ai/decided/txo-technical-standards_v3.2.md`
+2. **Read** `ai/decided/txo-business-adr_v3.3.md` and browse `ai/decided/txo-technical-standards_v3.3.md`
 3. Understand your requirements and target environment
 4. Decide your `org_id` and `env_type` parameters
 5. Fill in your details in Phase 2 (ERD in Mermaid format is recommended!)
@@ -38,32 +38,20 @@ Before using this template, verify:
 <required-documents>
     <required-document>
         <doc-type>business-rules</doc-type>
-        <file>ai/decided/txo-business-adr_v3.2.md</file>
+        <file>ai/decided/txo-business-adr_v3.3.md</file>
         <purpose>Organizational patterns, hard-fail philosophy, naming conventions, validation timing</purpose>
     </required-document>
 
     <required-document>
         <doc-type>technical-standards</doc-type>
-        <file>ai/decided/txo-technical-standards_v3.2.md</file>
+        <file>ai/decided/txo-technical-standards_v3.3.md</file>
         <purpose>Python patterns, threading, exception handling, library boundaries (NEW: ADR-T011, ADR-T012)</purpose>
     </required-document>
 
     <required-document>
         <doc-type>function-reference</doc-type>
-        <file>ai/decided/utils-quick-reference_v3.2.md</file>
+        <file>ai/decided/utils-quick-reference_v3.3.md</file>
         <purpose>Complete list of existing functions - DO NOT INVENT THESE (includes AsyncOperationResult, enhanced CircuitBreaker)</purpose>
-    </required-document>
-
-    <required-document>
-        <doc-type>example-readme</doc-type>
-        <file>ai/decided/readme-example_v3.2.md</file>
-        <purpose>Template for quick-start README.md targeting new developers</purpose>
-    </required-document>
-
-    <required-document>
-        <doc-type>example-in-depth</doc-type>
-        <file>ai/decided/in-depth-readme-example_v3.2.md</file>
-        <purpose>Template for comprehensive documentation targeting maintainers</purpose>
     </required-document>
 </required-documents>
 ```
@@ -80,11 +68,11 @@ Before using this template, verify:
 
 ```xml
 <ai-directory-overview>
-    <permanent-docs format="kebab-case_v3.2.md">
+    <permanent-docs format="kebab-case_v3.3.md">
         <location>ai/decided/, ai/prompts/, ai/reports/</location>
         <purpose>ADRs, patterns, examples - READ for guidance</purpose>
         <ai-action>READ only, DO NOT modify</ai-action>
-        <includes>txo-ai-adr_v3.2.md - AI workflow standards (NEW)</includes>
+        <includes>txo-ai-adr_v3.3.md - AI workflow standards (NEW)</includes>
     </permanent-docs>
 
     <working-docs format="UPPERCASE.md">
@@ -105,7 +93,7 @@ Before using this template, verify:
 **For script creation**: META-DOCUMENTS usually NOT needed
 - Single script = straightforward, no TODO.md needed
 - If complex/multi-phase: ASK USER "Create TODO.md for tracking?"
-- See `ai/decided/txo-ai-adr_v3.2.md` for full AI workflow standards
+- See `ai/decided/txo-ai-adr_v3.3.md` for full AI workflow standards
 
 **What AI WILL Create**:
 - Your script code
@@ -128,103 +116,155 @@ Before using this template, verify:
 
 **Fill in your script requirements below:**
 
+### Script Metadata (for AI extraction)
 ```xml
-<script-requirements>
-    <script-metadata>
-        <script-name>[your_script_name]</script-name>
-        <script-purpose>[What business problem does this solve? Why does this script exist?]</script-purpose>
-        <target-audience>[Who will use this? Technical level?]</target-audience>
-        <complexity-level>[simple/moderate/complex]</complexity-level>
-    </script-metadata>
-
-    <org-env-context>
-        <org-id>[your organization identifier]</org-id>
-        <env-type>[test/qa/prod]</env-type>
-        <requires-authentication>[true/false]</requires-authentication>
-        <primary-use-case>[daily operations/one-time migration/data analysis/etc.]</primary-use-case>
-    </org-env-context>
-
-    <environment-reality>
-        <!-- Describe the actual environment this script will work with -->
-        [EXAMPLE:
-        - Azure Tenant UUID: [tenant-id]
-        - Business Central environment: [environment-name]
-        - Companies to process: [company-list]
-        - APIs required: [api-endpoints]
-        - Authentication method: [client-credentials/etc.]
-        - Rate limits: [calls per minute]
-        ]
-    </environment-reality>
-
-    <data-contracts>
-        <input-data>
-            <!-- What data does the script process? Be specific about formats -->
-            [EXAMPLE:
-            - CSV file: data/customers.csv with columns [name, email, phone, address]
-            - API responses: JSON with specific schema
-            - File size expectations: [small <1MB / large >10MB]
-            ]
-        </input-data>
-
-        <output-data>
-            <!-- What does the script produce? Specify formats and naming -->
-            [EXAMPLE:
-            - Excel report: output/sync-results_YYYY-MM-DDTHHMMSZ.xlsx
-            - JSON summary: output/processing-summary_YYYY-MM-DDTHHMMSZ.json
-            - Log files: logs/script-execution_YYYY-MM-DDTHHMMSZ.log
-            ]
-        </output-data>
-
-        <success-criteria>
-            <!-- How do you know the script worked? -->
-            [EXAMPLE:
-            - All records processed without errors
-            - Output file contains expected number of results
-            - ProcessingResults shows: "✅ All 150 operations successful: 75 created, 75 updated"
-            ]
-        </success-criteria>
-    </data-contracts>
-
-    <business-logic>
-        <!-- What are the processing rules? -->
-        [EXAMPLE:
-        - Skip records with missing email addresses
-        - Update existing customers, create new ones
-        - Generate summary report with counts and errors
-        - Handle duplicate detection by email field
-        ]
-    </business-logic>
-
-    <api-integrations>
-        <api-endpoints>
-            [EXAMPLE:
-            - Business Central: GET/POST /api/v2.0/companies/{companyId}/customers
-            - External API: GET https://api.example.com/data
-            - Authentication: OAuth client credentials flow
-            ]
-        </api-endpoints>
-
-        <resilience-requirements>
-            [EXAMPLE:
-            - Circuit breaker after 5 consecutive failures
-            - Rate limiting: 100 calls per minute
-            - Retry on 5xx errors with exponential backoff
-            - Timeout: 30 seconds per request
-            ]
-        </resilience-requirements>
-    </api-integrations>
-
-    <error-handling>
-        <!-- How should errors be handled? -->
-        [EXAMPLE:
-        - Invalid CSV format: Stop with helpful error message
-        - API rate limit hit: Wait and retry automatically
-        - Network timeout: Retry 3 times, then fail gracefully
-        - Missing config: Exit with clear setup instructions
-        ]
-    </error-handling>
-</script-requirements>
+<script-metadata>
+    <script-name>[your_script_name]</script-name>
+    <script-purpose>[One sentence: What business problem does this solve?]</script-purpose>
+    <complexity>[simple|moderate|complex]</complexity>
+</script-metadata>
 ```
+
+---
+
+## Script Requirements
+
+### 1. Organization & Environment
+- **Organization ID**: `[your-org-id]`
+- **Environment Type**: `[test|qa|prod]`
+- **Requires Authentication**: `[yes|no]`
+- **Primary Use Case**: `[daily operations | one-time migration | data analysis | reporting]`
+
+### 2. Environment Reality
+Describe the actual environment this script will work with:
+
+```
+Example:
+- Azure Tenant UUID: [tenant-id-here]
+- Business Central environment: [environment-name]
+- Companies to process: [company-list or "all companies"]
+- APIs required: [which endpoints/services]
+- Authentication method: [client-credentials | managed-identity | etc.]
+- Rate limits: [X calls per minute]
+```
+
+### 3. Data Contracts
+
+#### Input Data
+What data does the script process? Be specific about formats.
+
+```
+Example:
+- CSV file: data/customers.csv
+  Columns: [name, email, phone, address, country]
+  Size: ~1000 rows, <1MB
+
+- API responses: JSON from GET /customers
+  Schema: {"id": "string", "name": "string", ...}
+
+- Excel file: data/products.xlsx
+  Sheet: "Products", Columns: [sku, price, stock]
+```
+
+#### Output Data
+What does the script produce? Specify formats and naming patterns.
+
+```
+Example:
+- Excel report: output/{org}-{env}-sync-results_{UTC}.xlsx
+  Sheets: ["Summary", "Details", "Errors"]
+
+- JSON summary: output/{org}-{env}-processing-summary_{UTC}.json
+  Structure: {"total": 150, "success": 145, "failed": 5}
+
+- Log files: logs/{org}-{env}-script_{UTC}.log
+  Format: Structured JSON logs
+```
+
+#### Success Criteria
+How do you know the script worked?
+
+```
+Example:
+- All records processed without fatal errors
+- Output file created with expected row count
+- ProcessingResults shows: "✅ All 150 operations successful: 75 created, 75 updated"
+- No ERROR level logs in log file
+- Email notification sent to admins
+```
+
+### 4. Business Logic
+What are the core processing rules?
+
+```
+Example:
+- Skip records with missing required fields (email, name)
+- For each customer record:
+  * Check if exists in target system (match by email)
+  * If exists: UPDATE customer data
+  * If not exists: CREATE new customer
+- Generate summary with counts: created, updated, skipped, failed
+- Flag duplicates: If multiple records have same email, process first and warn
+```
+
+### 5. API Integrations
+
+#### Endpoints
+```
+Example:
+- Business Central: GET/POST /api/v2.0/companies/{companyId}/customers
+  Base URL: https://api.businesscentral.dynamics.com/v2.0/production
+  Auth: OAuth client credentials
+
+- External API: GET https://api.example.com/data/customers
+  Auth: API key in header
+```
+
+#### Resilience Requirements
+```
+Example:
+- Circuit breaker: After 5 consecutive failures, stop and alert
+- Rate limiting: Max 100 API calls per minute
+- Retry strategy: On 5xx errors, retry 3 times with exponential backoff (2s, 4s, 8s)
+- Timeout: 30 seconds per API request
+- Batch processing: Process in batches of 50 records
+```
+
+### 6. Error Handling
+How should different error types be handled?
+
+```
+Example:
+- Invalid CSV format:
+  * Stop immediately
+  * Show error: "CSV missing required column 'email' at row 15"
+  * Exit code 1
+
+- API rate limit hit (429):
+  * Wait for Retry-After header duration
+  * Resume automatically
+  * Log warning
+
+- Network timeout:
+  * Retry 3 times
+  * If still fails: Log error, continue with next record
+
+- Missing config:
+  * Show error: "Missing required config: 'api-base-url'"
+  * Show example config snippet
+  * Exit code 1
+```
+
+### 7. Additional Requirements
+```
+Example:
+- Performance: Script should complete 1000 records in <5 minutes
+- Scheduling: Should be safe to run via cron (idempotent)
+- Notifications: Email summary report to admins on completion
+- Dry-run mode: Option to preview changes without writing
+```
+
+---
 
 **Instructions for Phase 2:**
 - **BE SPECIFIC** about data formats, API endpoints, and business rules
@@ -293,14 +333,20 @@ Before using this template, verify:
 
 ```xml
 <critical-pattern-reminders>
-    <!-- TOP 12 violations from real usage - v3.2 updated based on refactoring learnings -->
+    <!-- TOP 16 violations from real usage - v3.3 updated with ADR-B017 directory rules -->
 
-    <!-- MANDATORY PATTERNS (v3.2) -->
+    <!-- MANDATORY PATTERNS (v3.3 - ADR-B017) -->
     <imports>✅ Use create_rest_api() NOT import requests</imports>
     <config-access>✅ Use config['key'] NOT config.get('key', default) - HARD FAIL on required config</config-access>
     <directories>✅ Use Dir.OUTPUT NOT 'output' strings</directories>
-    <timestamps>✅ Use save_with_timestamp() NOT manual datetime formatting - framework handles UTC</timestamps>
-    <existing-helpers>✅ CHECK utils-quick-reference_v3.2.md - DO NOT reinvent existing functions</existing-helpers>
+
+    <!-- NEW v3.3: Directory-specific timestamp rules (ADR-B017) -->
+    <timestamps-output>✅ MUST: Dir.OUTPUT → save_with_timestamp(..., add_timestamp=True) - UTC mandatory</timestamps-output>
+    <timestamps-tmp>✅ SHOULD: Dir.TMP → save_with_timestamp(..., add_timestamp=True) - UTC recommended</timestamps-tmp>
+    <timestamps-payloads>❌ MUST NOT: Dir.GENERATED_PAYLOADS → save() directly - NO UTC (deterministic for human validation)</timestamps-payloads>
+    <filename-pattern>✅ MUST: f"{config['_org_id']}-{config['_env_type']}-description.ext" - both org AND env required</filename-pattern>
+
+    <existing-helpers>✅ CHECK utils-quick-reference_v3.3.md - DO NOT reinvent existing functions</existing-helpers>
     <config-preservation>✅ DO NOT remove existing config data without clear user instructions</config-preservation>
     <schema-updates>✅ UPDATE JSON schema if adding new configuration fields</schema-updates>
 
@@ -319,6 +365,36 @@ Before using this template, verify:
     -->
 </critical-pattern-reminders>
 ```
+
+**🔑 Directory-Specific Examples (ADR-B017):**
+
+```python
+# ✅ CORRECT - OUTPUT files WITH UTC (MUST)
+filename = f"{config['_org_id']}-{config['_env_type']}-sync-results.json"
+output_path = data_handler.save_with_timestamp(results, Dir.OUTPUT, filename, add_timestamp=True)
+# Produces: output/txo-lab-sync-results_2025-11-01T143022Z.json
+
+# ✅ CORRECT - TMP files WITH UTC (SHOULD)
+filename = f"{config['_org_id']}-{config['_env_type']}-processing-cache.json"
+tmp_path = data_handler.save_with_timestamp(cache, Dir.TMP, filename, add_timestamp=True)
+# Produces: tmp/txo-lab-processing-cache_2025-11-01T143022Z.json
+
+# ✅ CORRECT - GENERATED_PAYLOADS WITHOUT UTC (MUST NOT)
+filename = f"{config['_org_id']}-{config['_env_type']}-create-user-request.json"
+payload_path = data_handler.save(request_payload, Dir.GENERATED_PAYLOADS, filename)
+# Produces: generated_payloads/txo-lab-create-user-request.json (deterministic for human validation)
+
+# ❌ WRONG - OUTPUT without UTC timestamp
+data_handler.save(data, Dir.OUTPUT, "report.json")  # Missing UTC!
+
+# ❌ WRONG - Filename missing env_type
+filename = f"results-{config['_org_id']}.json"  # Only org, no env!
+
+# ❌ WRONG - Generated payload WITH UTC (should be deterministic)
+data_handler.save_with_timestamp(payload, Dir.GENERATED_PAYLOADS, filename, add_timestamp=True)  # NO!
+```
+
+---
 
 **Now generate a complete Python script that:**
 
@@ -426,7 +502,7 @@ Review the generated script against this checklist:
     <framework-patterns>
         <question>Does the script follow the standard TXO script pattern?</question>
         <violation-check>Check: parse_args_and_load_config(), TxoDataHandler(), setup_logger()</violation-check>
-        <required-fix>Use utils-quick-reference_v3.2.md complete script pattern</required-fix>
+        <required-fix>Use utils-quick-reference_v3.3.md complete script pattern</required-fix>
     </framework-patterns>
 
     <v3.2-new-patterns>
@@ -557,7 +633,7 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 
 **⚠️ IMPORTANT**: You are creating README.md for **THE SCRIPT**, not the template
 
-**Template to use**: `ai/decided/readme-example_v3.2.md`
+**Template to use**: `ai/decided/readme-example_v3.3.md`
 - This is a PATTERN to copy (has header explaining it's a template)
 - Replace ALL placeholders with script-specific content
 - Do NOT copy verbatim - adapt to your script
@@ -588,11 +664,12 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
         </prerequisites>
 
         <setup-instructions>
-            - Clone/download steps
+            - Clone/download steps (or "Use this template" on GitHub)
             - Virtual environment creation
-            - Dependency installation
+            - Dependency installation (pip install -r requirements.txt OR uv sync)
             - Configuration file preparation
             - First run verification
+            - Optional: Update dependencies (uv pip list --outdated, then uv remove/add for updates)
         </setup-instructions>
 
         <usage>
@@ -641,7 +718,7 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 </readme-specifications>
 ```
 
-**Generate README.md following the EXACT pattern in `ai/decided/readme-example_v3.2.md`**
+**Generate README.md following the EXACT pattern in `ai/decided/readme-example_v3.3.md`**
 
 **CRITICAL**: Use the example template as your TEMPLATE - copy the structure, sections, and style. Adapt the content to your specific script but maintain the same organization and approach.
 
@@ -655,7 +732,7 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 
 **⚠️ IMPORTANT**: You are creating in-depth-readme.md for **THE SCRIPT**, not the template
 
-**Template to use**: `ai/decided/in-depth-readme-example_v3.2.md`
+**Template to use**: `ai/decided/in-depth-readme-example_v3.3.md`
 - This is a PATTERN to copy (has header explaining it's a template)
 - Replace placeholders with script-specific technical details
 - Scale depth to script complexity (simple script = shorter, complex = comprehensive)
@@ -710,7 +787,7 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 
         <references>
             - Links to relevant ADRs (B002–B012)
-            - Links to utils-quick-reference_v3.2.md
+            - Links to utils-quick-reference_v3.3.md
             - Related TXO framework components
         </references>
     </required-sections>
@@ -724,7 +801,7 @@ grep -n "config\.get(" src/your_script.py  # Review each for hard-fail vs soft-f
 </in-depth-specifications>
 ```
 
-**Generate in-depth-readme.md following the EXACT pattern in `ai/decided/in-depth-readme-example_v3.2.md`**
+**Generate in-depth-readme.md following the EXACT pattern in `ai/decided/in-depth-readme-example_v3.3.md`**
 
 **CRITICAL**: Use the example template as your TEMPLATE - copy the structure, sections, and comprehensive approach. Focus on WHY decisions were made and HOW to customize/extend.
 

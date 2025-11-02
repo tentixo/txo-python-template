@@ -1,4 +1,4 @@
-# TXO Python Template v3.1.1 - In-Depth Guide
+# TXO Python Template v3.3.0 - In-Depth Guide
 
 > **Audience**: Framework maintainers, experienced developers, and customization needs
 > **Purpose**: Deep understanding of architecture, rationale, and extension points
@@ -13,7 +13,8 @@
 3. [Error Handling Patterns](#error-handling-patterns)
 4. [Developer Extension Notes](#developer-extension-notes)
 5. [Comprehensive Examples](#comprehensive-examples)
-6. [References](#references)
+6. [Document Archival Workflow](#document-archival-workflow)
+7. [References](#references)
 
 ---
 
@@ -67,6 +68,47 @@ logger.info(f"✅ Saved {len(results)} records")
 context = f"[{bc_env}/{company_name}/CustomerAPI]"
 logger.info(f"{context} Starting synchronization")
 logger.error(f"{context} Rate limit exceeded, retrying in {delay}s")
+```
+
+### Why Directory-Specific UTC Timestamp Rules (ADR-B017)
+
+**Decision**: Different timestamp rules for different directories
+
+**Rationale**: Different directories serve different purposes
+
+| Directory | UTC? | Rationale |
+|-----------|------|-----------|
+| `output/` | MUST | Audit trail, non-destructive, traceability |
+| `tmp/` | SHOULD | Multi-run debugging (flexible) |
+| `generated_payloads/` | MUST NOT | Human validation workflow (stable names) |
+| `payloads/` | MUST NOT | Manual curation (stable references) |
+| `wsdl/` | MUST NOT | Service versioning (not time-based) |
+
+**Implementation**:
+```python
+# For output (MUST use UTC)
+data_handler.save_with_timestamp(data, Dir.OUTPUT, filename, add_timestamp=True)
+
+# For generated payloads (MUST NOT use UTC)
+data_handler.save(payload, Dir.GENERATED_PAYLOADS, filename)
+```
+
+**Validation**: `validate_tko_compliance.py` checks correct usage
+
+**Human Workflow** (payloads):
+```bash
+# 1. Code generates (no timestamp)
+generated_payloads/mycompany-prod-create-user.json
+
+# 2. Human validates
+cat generated_payloads/mycompany-prod-create-user.json
+# Check fields, values, structure
+
+# 3. Human approves
+cp generated_payloads/mycompany-prod-create-user.json payloads/
+
+# 4. Code reads and sends
+# (reads from payloads/ directory)
 ```
 
 ---
@@ -289,28 +331,62 @@ data_handler.save_with_timestamp(
 
 ---
 
+## Document Archival Workflow
+
+### old/ Directory Pattern (ADR-AI002)
+
+**Purpose**: Keep workspace clean while preserving history
+
+**Rules**:
+1. **Manual archival**: User moves old versions, not automated
+2. **AI ignores**: AI assistants skip `**/old/` directories automatically
+3. **No cleanup**: Never delete from old/ (historical reference)
+
+**Workflow**:
+```bash
+# When creating v3.4, archive v3.3
+mkdir -p ai/decided/old
+mv ai/decided/utils-quick-reference_v3.3.md ai/decided/old/
+
+# Git tracks the move
+git add ai/decided/old/utils-quick-reference_v3.3.md
+git rm ai/decided/utils-quick-reference_v3.3.md
+git commit -m "Archive v3.3 docs, promote v3.4"
+```
+
+**Locations**:
+```
+ai/old/                # Superseded working documents (TODO.md, STATUS.md)
+ai/decided/old/        # Superseded ADRs, templates, references
+ai/prompts/old/        # Superseded prompt templates
+ai/reports/old/        # Superseded reports
+```
+
+---
+
 ## References
 
 ### TXO Framework Documentation
-- **Business Rules**: `ai/decided/txo-business-adr_v3.1.md`
-- **Technical Standards**: `ai/decided/txo-technical-standards_v3.1.md`
-- **Function Reference**: `ai/decided/utils-quick-reference_v3.1.md`
-- **AI Development**: `ai/prompts/ai-prompt-template_v3.1.1.md`
+- **Business Rules**: `ai/decided/txo-business-adr_v3.3.md`
+- **Technical Standards**: `ai/decided/txo-technical-standards_v3.3.md`
+- **Function Reference**: `ai/decided/utils-quick-reference_v3.3.md`
+- **AI Development**: `ai/prompts/script-ai-prompt-template_v3.3.md`
 
 ### Key ADRs for Framework Understanding
 - **ADR-B003**: Hard-Fail Configuration Philosophy
 - **ADR-B006**: Smart Logging Context Strategy
 - **ADR-B007**: Standardized Operation Result Tracking
 - **ADR-B014**: Documentation Separation Principles
+- **ADR-B017**: Directory-Specific UTC Timestamp Rules
 
 ### Framework Architecture
 - **Visual Overview**: `module-dependency-diagram.md`
 - **Technical Details**: `ai/reports/refactoring.md`
-- **Release History**: `ai/reports/release-notes-v3.1.1.md`
+- **Release History**: `ai/reports/release-notes-v3.2.md`
 
 ---
 
-**Version:** v3.1.1
-**Last Updated:** 2025-09-28
+**Version:** v3.3.0
+**Last Updated:** 2025-11-02
 **Domain:** TXO Framework - Maintainer Guide
 **Purpose:** Deep understanding for customization and extension

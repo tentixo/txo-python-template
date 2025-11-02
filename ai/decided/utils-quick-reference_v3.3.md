@@ -414,6 +414,27 @@ print("Processing complete")  # Use logger.info() instead
 
 # ❌ Soft-fail for configuration
 timeout = config.get("timeout", 30)  # Use config["timeout"] instead
+
+# ❌ OUTPUT without UTC timestamp (ADR-B017 violation)
+filename = f"{config['_org_id']}-{config['_env_type']}-report.json"
+data_handler.save(data, Dir.OUTPUT, filename)  # MUST use save_with_timestamp!
+
+# ❌ TMP without org-env pattern
+data_handler.save(cache, Dir.TMP, "temp-data.json")  # Missing org and env!
+
+# ❌ Filename missing env_type
+filename = f"results-{config['_org_id']}.json"  # MUST include env_type!
+
+# ❌ Generated payload WITH UTC timestamp
+filename = f"{config['_org_id']}-{config['_env_type']}-request.json"
+data_handler.save_with_timestamp(payload, Dir.GENERATED_PAYLOADS, filename, add_timestamp=True)
+# Why wrong: Payloads MUST be deterministic for human validation workflow
+
+# ❌ Manual UTC formatting
+from datetime import datetime, timezone
+timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+filename = f"data_{timestamp}.json"
+# Why wrong: Use framework's save_with_timestamp() method instead
 ```
 
 ---
@@ -472,9 +493,12 @@ def main():
         except Exception as e:
             results.failed.append(f"CustomerAPI/{config['_org_id']}/{customer.id}: {e}")
 
-    # 5. Save results and summary
-    data_handler.save_with_timestamp(results, Dir.OUTPUT, f"sync-results-{config['_org_id']}.json", add_timestamp=True)
+    # 5. Save results with org-env pattern and UTC timestamp (ADR-B017)
+    filename = f"{config['_org_id']}-{config['_env_type']}-sync-results.json"
+    output_path = data_handler.save_with_timestamp(results, Dir.OUTPUT, filename, add_timestamp=True)
+    logger.info(f"Results saved: {output_path}")
     logger.info(results.summary())
+    # Produces: output/txo-lab-sync-results_2025-11-01T143022Z.json
 
 
 if __name__ == "__main__":
@@ -497,6 +521,117 @@ Your Prompt + Business ADRs + Technical Standards + This Quick Reference
 → AI generates code using EXISTING functions
 → Consistent patterns, fewer tokens, working code
 ```
+
+---
+
+## 📂 Directory-Specific Save Patterns (ADR-B017)
+
+### Quick Reference Table
+
+| Directory | UTC Timestamp? | Org-Env Pattern? | Method | RFC 2119 |
+|-----------|----------------|------------------|--------|----------|
+| `Dir.OUTPUT` | ✅ YES | ✅ YES | `save_with_timestamp(..., add_timestamp=True)` | **MUST** |
+| `Dir.TMP` | ✅ YES | ✅ YES | `save_with_timestamp(..., add_timestamp=True)` | **SHOULD** |
+| `Dir.GENERATED_PAYLOADS` | ❌ NO | ✅ YES | `save()` | **MUST NOT** |
+| `Dir.PAYLOADS` | ❌ NO | ✅ YES | Manual move | **MUST NOT** |
+| `Dir.WSDL` | ❌ NO | ❌ NO | `save()` | **MUST NOT** |
+
+### Complete Examples by Directory
+
+#### Output Files (MUST use UTC)
+```python
+from utils.load_n_save import TxoDataHandler
+from utils.path_helpers import Dir
+
+data_handler = TxoDataHandler()
+
+# JSON output
+filename = f"{config['_org_id']}-{config['_env_type']}-sync-results.json"
+path = data_handler.save_with_timestamp(results, Dir.OUTPUT, filename, add_timestamp=True)
+# → output/txo-lab-sync-results_2025-11-01T143022Z.json
+
+# Excel output with multiple sheets
+sheets = {"Summary": summary_df, "Details": details_df}
+filename = f"{config['_org_id']}-{config['_env_type']}-analysis-report.xlsx"
+path = data_handler.save_with_timestamp(sheets, Dir.OUTPUT, filename, add_timestamp=True)
+# → output/txo-lab-analysis-report_2025-11-01T143022Z.xlsx
+```
+
+#### Tmp Files (SHOULD use UTC)
+```python
+# Processing cache (recommended pattern)
+filename = f"{config['_org_id']}-{config['_env_type']}-processing-cache.json"
+path = data_handler.save_with_timestamp(cache, Dir.TMP, filename, add_timestamp=True)
+# → tmp/txo-lab-processing-cache_2025-11-01T143022Z.json
+
+# Acceptable: Ephemeral data without UTC (flexible)
+path = data_handler.save(quick_cache, Dir.TMP, "ephemeral-cache.json")
+# → tmp/ephemeral-cache.json
+```
+
+#### Generated Payloads (MUST NOT use UTC)
+```python
+# JSON payloads for human validation
+filename = f"{config['_org_id']}-{config['_env_type']}-create-user-request.json"
+path = data_handler.save(request_payload, Dir.GENERATED_PAYLOADS, filename)
+# → generated_payloads/txo-lab-create-user-request.json (deterministic, no timestamp)
+
+# Workflow:
+# 1. Code generates → generated_payloads/txo-lab-create-user-request.json
+# 2. Human validates → checks JSON structure, field values
+# 3. Human moves → cp to payloads/txo-lab-create-user-request.json
+# 4. Code reads and sends → from payloads/ directory
+```
+
+#### Payloads Directory (Manual Workflow)
+```python
+# Code READS from payloads/, does NOT write to it
+# Files are manually moved from generated_payloads/ after human validation
+
+# Reading validated payloads
+from utils.path_helpers import get_path, Dir
+import json
+
+payload_file = f"{config['_org_id']}-{config['_env_type']}-create-user-request.json"
+payload_path = get_path(Dir.PAYLOADS, payload_file)
+
+with open(payload_path, 'r') as f:
+    validated_payload = json.load(f)
+
+# Send via API...
+```
+
+#### WSDL Files (MUST NOT use UTC)
+```python
+# Service definitions (versioned by service, not time)
+filename = "UserService_v2.1.wsdl"
+path = data_handler.save(wsdl_content, Dir.WSDL, filename)
+# → wsdl/UserService_v2.1.wsdl (service version, not timestamp)
+```
+
+### Why Different Rules?
+
+**Output (MUST use UTC):**
+- Each run creates unique file → No overwrites
+- Audit trail and debugging require time tracking
+- Example: "Upload your output from yesterday's 2pm run"
+
+**Tmp (SHOULD use UTC):**
+- Multi-run debugging benefits from timestamps
+- But MAY be relaxed for truly ephemeral data
+
+**Generated Payloads (MUST NOT use UTC):**
+- Human validation workflow requires stable filenames
+- Always overwrites with latest version
+- Easier to reference: "Check the txo-lab-create-user-request.json file"
+
+**Payloads (MUST NOT use UTC):**
+- Manually curated by humans
+- Stable references in code and documentation
+
+**WSDL (MUST NOT use UTC):**
+- Service version controls naming (e.g., v2.1, v3.0)
+- Not time-based versioning
 
 ---
 

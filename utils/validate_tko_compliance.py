@@ -49,6 +49,7 @@ class TkoComplianceValidator:
         self._check_api_patterns(lines)
         self._check_timestamp_patterns(lines)
         self._check_directory_patterns(lines)
+        self._check_directory_specific_timestamps(lines)
         self._check_configuration_patterns(lines)
         self._check_complexity_patterns(lines)
         self._check_framework_patterns(content)
@@ -96,6 +97,68 @@ class TkoComplianceValidator:
                     "line": i,
                     "fix": "Use: Dir.CONFIG, Dir.DATA, Dir.OUTPUT, etc."
                 })
+
+    def _check_directory_specific_timestamps(self, lines: List[str]) -> None:
+        """Check ADR-B017: Directory-specific UTC timestamp rules."""
+        for i, line in enumerate(lines, 1):
+            # Check for OUTPUT directory without UTC timestamp
+            if re.search(r'\.save\s*\([^)]*Dir\.OUTPUT', line):
+                if 'save_with_timestamp' not in line:
+                    self.violations.append({
+                        "type": "OUTPUT_NO_TIMESTAMP",
+                        "message": "OUTPUT directory MUST use save_with_timestamp (ADR-B017)",
+                        "line": i,
+                        "fix": "Use: data_handler.save_with_timestamp(data, Dir.OUTPUT, filename, add_timestamp=True)"
+                    })
+                elif 'add_timestamp=False' in line or 'add_timestamp=false' in line.lower():
+                    self.violations.append({
+                        "type": "OUTPUT_TIMESTAMP_DISABLED",
+                        "message": "OUTPUT directory MUST have add_timestamp=True (ADR-B017)",
+                        "line": i,
+                        "fix": "Change to: add_timestamp=True"
+                    })
+
+            # Check for GENERATED_PAYLOADS with UTC timestamp
+            if re.search(r'Dir\.GENERATED_PAYLOADS', line):
+                if 'save_with_timestamp' in line:
+                    self.violations.append({
+                        "type": "PAYLOAD_WITH_TIMESTAMP",
+                        "message": "GENERATED_PAYLOADS MUST NOT use save_with_timestamp (ADR-B017)",
+                        "line": i,
+                        "fix": "Use: data_handler.save(payload, Dir.GENERATED_PAYLOADS, filename)"
+                    })
+
+            # Check for PAYLOADS with UTC timestamp
+            if re.search(r'Dir\.PAYLOADS', line):
+                if 'save_with_timestamp' in line:
+                    self.violations.append({
+                        "type": "PAYLOAD_WITH_TIMESTAMP",
+                        "message": "PAYLOADS MUST NOT use save_with_timestamp (ADR-B017)",
+                        "line": i,
+                        "fix": "Use: data_handler.save(payload, Dir.PAYLOADS, filename)"
+                    })
+
+            # Check for filename pattern without org_id and env_type
+            if re.search(r'filename\s*=\s*f?["\']', line):
+                if '{config' in line or 'config[' in line:
+                    # Check if both _org_id and _env_type are present
+                    has_org = bool(re.search(r'\[\'_org_id\'\]|{config\[\'_org_id\'\]}', line))
+                    has_env = bool(re.search(r'\[\'_env_type\'\]|{config\[\'_env_type\'\]}', line))
+
+                    if has_org and not has_env:
+                        self.warnings.append({
+                            "type": "FILENAME_MISSING_ENV",
+                            "message": "Filename pattern missing env_type (ADR-B017)",
+                            "line": i,
+                            "fix": "Use pattern: f\"{config['_org_id']}-{config['_env_type']}-description.ext\""
+                        })
+                    elif has_env and not has_org:
+                        self.warnings.append({
+                            "type": "FILENAME_MISSING_ORG",
+                            "message": "Filename pattern missing org_id (ADR-B017)",
+                            "line": i,
+                            "fix": "Use pattern: f\"{config['_org_id']}-{config['_env_type']}-description.ext\""
+                        })
 
     def _check_configuration_patterns(self, lines: List[str]) -> None:
         """Check for soft-fail configuration access."""

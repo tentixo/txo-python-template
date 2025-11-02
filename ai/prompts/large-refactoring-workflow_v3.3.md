@@ -98,7 +98,7 @@ This document.
 
 ### 🔄 Task 1.2: Add Memory Optimization ADR
 **Status**: IN PROGRESS
-**Files**: ai/decided/txo-technical-standards_v3.2.md
+**Files**: ai/decided/txo-technical-standards_v3.3.md
 **Objective**: Formalize __slots__ usage strategy
 **Actions**:
 - Add ADR-T011 content
@@ -191,8 +191,8 @@ Benefit: Task tool doesn't consume main context
 
 #### 2. Create Summary Documents Frequently
 ```
-After analysis: Create ai/reports/adr-gap-analysis_v3.2.md
-After validation: Create ai/reports/adr-compliance-verification_v3.2.md
+After analysis: Create ai/reports/adr-gap-analysis_v3.3.md
+After validation: Create ai/reports/adr-compliance-verification_v3.3.md
 Benefit: Reference filename instead of re-reading content
 ```
 
@@ -220,8 +220,8 @@ Don't: Read entire codebase upfront
 
 **Checkpoint Documents Created**:
 1. `ai/TODO.md` - 16 tasks with status tracking
-2. `ai/reports/adr-gap-analysis_v3.2.md` - Initial assessment
-3. `ai/reports/adr-compliance-verification_v3.2.md` - Final validation
+2. `ai/reports/adr-gap-analysis_v3.3.md` - Initial assessment
+3. `ai/reports/adr-compliance-verification_v3.3.md` - Final validation
 4. `ai/reports/release-notes-v3.2.md` - Comprehensive changes log
 5. ADR updates: ADR-T011, ADR-T012, enhancements to ADR-T004, ADR-B004
 

@@ -9,6 +9,28 @@
 6. [Troubleshooting](#troubleshooting)
 7. [Internal vs Public Versioning Strategy](#internal-vs-public-versioning-strategy)
 
+## The TXO Workflow (Recommended)
+
+**TL;DR**: Tag the merge commit on main AFTER the PR is merged.
+
+### Quick Reference
+1. Develop on feature branch
+2. Create PR, get approval
+3. Merge PR to main (via GitHub)
+4. Pull main locally
+5. **Verify HEAD** with `git log -1`
+6. **Tag HEAD** with `git tag -a v3.3.0`
+7. Push tag to GitHub
+8. Create GitHub Release (select existing tag)
+
+**What gets tagged**: The merge commit on main created when GitHub merged your PR.
+
+**Why this way**: Tags mark stable code on long-lived branches. Feature branches are temporary and unstable (may be rebased/force-pushed during review).
+
+**Alternative approach exists**: Some teams tag feature branch before merge ("build-once-deploy-everywhere"), but we don't recommend this for TXO because it adds complexity and can point to commits that get rebased during PR review.
+
+---
+
 ## Understanding Git Tags vs GitHub Releases
 
 ### Git Tags
@@ -94,7 +116,7 @@ tested-production     # QA approved
 2. **Configure tag**
    - Tag name: `v2.0.0`
    - Message: Your release description
-   - Commit: Select specific commit or HEAD
+   - Commit: Leave blank to tag HEAD (current commit), or select specific commit from list
 
 ### Method 3: Via Branch Widget
 
@@ -184,6 +206,40 @@ git ls-remote --tags origin | grep v2.0.0
 4. **Save or Publish**
    - **Save draft**: Review later
    - **Publish release**: Make public immediately
+
+### Understanding GitHub's Two Tag Options
+
+When creating a release, GitHub shows:
+- **"Choose a tag" dropdown** with existing tags
+- **Option to "Create new tag"** by typing new name
+
+#### Option 1: Select Existing Tag (TXO Recommended)
+**Use when**: You already created and pushed tag locally (TXO workflow above)
+
+**Steps**:
+1. Click "Choose a tag" dropdown
+2. Select your existing tag (e.g., "v3.3.0")
+3. Add release notes
+4. Publish
+
+**What gets tagged**: Your existing local tag (you control exact commit)
+
+**Why recommended**: Explicit control, follows verification workflow, tag points to exact commit you verified
+
+#### Option 2: Create New Tag in GitHub UI
+**Use when**: Quick hotfix, simple release, no local git access
+
+**Steps**:
+1. Type new tag name in "Choose a tag" field (e.g., "v3.3.0")
+2. GitHub shows "Create new tag: v3.3.0 on publish"
+3. Add release notes
+4. Publish
+
+**What gets tagged**: Current HEAD of target branch (main) - GitHub decides
+
+**Limitation**: You can't control which commit gets tagged - GitHub picks whatever is currently HEAD on the target branch
+
+**TXO Recommendation**: Always use Option 1. It gives you explicit control and allows verification before tagging.
 
 ### Step 3: Release Notes Template
 
@@ -322,34 +378,53 @@ v2.1.0
 
 ## Complete Workflow Example
 
-### Scenario: Releasing v2.0.0
+### Scenario: Releasing v3.3.0 (TXO Way)
 
 ```bash
-# 1. Finish development on feature branch
-git checkout feature/v2-enhancements
-git commit -m "Final v2 changes"
+# 1. Develop on feature branch
+git checkout -b feature/v3.3-enhancements
+# ... make changes, commit, push ...
+git push origin feature/v3.3-enhancements
 
-# 2. Create internal tag for QA
-git tag -a qa-v2-ready -m "Ready for QA testing"
-git push origin qa-v2-ready
+# 2. Create Pull Request on GitHub
+# - Create PR from feature/v3.3-enhancements → main
+# - Get code review approval
+# - Ensure all CI tests pass
+# - DO NOT TAG YET!
 
-# 3. After QA approval, merge to main
+# 3. Merge PR via GitHub UI
+# - Click "Merge pull request" button
+# - Confirm merge
+# - GitHub creates a merge commit on main
+# - (Optional) Delete feature branch
+
+# 4. Pull the merged main to local
 git checkout main
-git merge feature/v2-enhancements
+git pull origin main
 
-# 4. Create release tag
-git tag -a v2.0.0 -m "Version 2.0.0 - Enhanced API resilience"
+# 5. VERIFY you're on the merge commit (CRITICAL!)
+git log -1 --oneline
+# Expected output: abc1234 Merge pull request #42 from feature/v3.3-enhancements
+# This is the commit that will be tagged!
 
-# 5. Push everything to GitHub
-git push origin main
-git push origin v2.0.0
+# 6. Tag HEAD (the merge commit)
+git tag -a v3.3.0 -m "Version 3.3.0 - Enhanced API resilience"
+# Note: No <commit-hash> means tag current HEAD
 
-# 6. Create GitHub Release
-# - Go to GitHub.com
-# - Create new release
-# - Select v2.0.0 tag
-# - Add release notes
-# - Publish
+# 7. Push tag to GitHub
+git push origin v3.3.0
+# IMPORTANT: Tag must be on GitHub before creating Release
+
+# 8. Verify tag is on GitHub
+git ls-remote --tags origin | grep v3.3.0
+# Should show: refs/tags/v3.3.0
+
+# 9. Create GitHub Release
+# - Go to GitHub repository → Releases
+# - Click "Draft a new release"
+# - "Choose a tag" → Select "v3.3.0" from dropdown (NOT "Create new tag")
+# - Add release title and notes
+# - Publish release
 ```
 
 ## Quick Reference
@@ -357,8 +432,11 @@ git push origin v2.0.0
 ### Essential Commands
 
 ```bash
-# Create annotated tag
+# Create annotated tag on current HEAD (what you're on right now)
 git tag -a v2.0.0 -m "Version 2.0.0"
+
+# Create tag on specific commit (override HEAD)
+git tag -a v2.0.0 abc1234 -m "Version 2.0.0"
 
 # Push specific tag
 git push origin v2.0.0
@@ -401,9 +479,10 @@ git show v2.0.0
 5. **Keep internal tags** separate from version tags
 6. **Write comprehensive release notes**
 7. **Test locally** before tagging
-8. **Tag after merging** to main, not before
-9. **Don't reuse tag names** (delete first if needed)
-10. **Document breaking changes** clearly
+8. **Verify HEAD before tagging** - Use `git log -1` to confirm you're on the right commit
+9. **Tag AFTER merging to main** - Not before or during PR review (feature branches unstable)
+10. **Don't reuse tag names** (delete first if needed)
+11. **Document breaking changes** clearly
 
 ## Additional Resources
 

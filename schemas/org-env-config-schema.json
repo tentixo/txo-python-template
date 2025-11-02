@@ -38,6 +38,29 @@
         }
       }
     },
+    "fat-fucks": {
+      "description": "Weight tracking data for individuals",
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["date", "weight"],
+          "properties": {
+            "date": {
+              "type": "string",
+              "format": "date",
+              "description": "Measurement date in YYYY-MM-DD format"
+            },
+            "weight": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Weight in kilograms"
+            }
+          }
+        }
+      }
+    },
     "script-behavior": {
       "description": "Script execution behavior settings",
       "type": "object",

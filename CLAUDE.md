@@ -26,13 +26,13 @@
 ### **Step-by-Step Workflow**:
 
 1. **Discuss Code**: Analyze requirements, identify patterns, determine approach
-2. **ADR Decision**: Update `ai/decided/txo-business-adr_v3.1.md` or `ai/decided/txo-technical-standards_v3.1.md` if needed
-3. **Working Code**: Implement following TXO patterns from `ai/decided/utils-quick-reference_v3.1.md`
+2. **ADR Decision**: Update `ai/decided/txo-business-adr_v3.3.md` or `ai/decided/txo-technical-standards_v3.3.md` if needed
+3. **Working Code**: Implement following TXO patterns from `ai/decided/utils-quick-reference_v3.3.md`
 4. **Validation**: Run compliance tools and verify against ADRs
-5. **Utils Reference**: Update `ai/decided/utils-quick-reference_v3.1.md` if new functions added
-6. **Adapt Prompt**: Update `ai/prompts/ai-prompt-template_v3.1.1.md` if new patterns discovered
+5. **Utils Reference**: Update `ai/decided/utils-quick-reference_v3.3.md` if new functions added
+6. **Adapt Prompt**: Update `ai/prompts/script-ai-prompt-template_v3.3.md` if new patterns discovered
 7. **Documentation**: Update README.md (15-min success) and in-depth-readme.md (maintainer focus)
-8. **Release Notes**: Update `ai/reports/release-notes-v3.1.1.md` with changes
+8. **Release Notes**: Update `ai/reports/release-notes-v3.2.md` with changes
 
 ---
 
@@ -86,7 +86,7 @@ git tag v3.2 -m "annotated tag message"
 git push origin main --tags
 
 # AI can generate commit message:
-# "Generate git commit message from ai/reports/release-notes_v3.2.md
+# "Generate git commit message from ai/reports/release-notes_v3.3.md
 #  following TXO pattern in github-tagging-guide.md"
 ```
 
@@ -112,12 +112,12 @@ git push origin main --tags
 ```
 
 ### **Key Files for AI Development**
-- **Patterns Reference**: `ai/decided/utils-quick-reference_v3.2.md` (step 3: coding)
-- **Business Rules**: `ai/decided/txo-business-adr_v3.2.md` (step 2: decisions)
-- **Technical Standards**: `ai/decided/txo-technical-standards_v3.2.md` (step 4: validation)
-- **AI Workflow**: `ai/decided/txo-ai-adr_v3.2.md` (NEW - AI document standards)
-- **AI Prompts**: `ai/prompts/ai-prompt-template_v3.2.md` (Script Creating), `ai/prompts/refactoring-ai-prompt_v3.2.md` (Refactoring)
-- **Documentation Examples**: `ai/decided/readme-example_v3.2.md`, `ai/decided/in-depth-readme-example_v3.2.md` (step 7)
+- **Patterns Reference**: `ai/decided/utils-quick-reference_v3.3.md` (step 3: coding)
+- **Business Rules**: `ai/decided/txo-business-adr_v3.3.md` (step 2: decisions)
+- **Technical Standards**: `ai/decided/txo-technical-standards_v3.3.md` (step 4: validation)
+- **AI Workflow**: `ai/decided/txo-ai-adr_v3.3.md` (NEW - AI document standards)
+- **AI Prompts**: `ai/prompts/script-ai-prompt-template_v3.3.md` (Script Creating), `ai/prompts/refactoring-ai-prompt_v3.3.md` (Refactoring)
+- **Documentation Examples**: `ai/decided/script-readme-example_v3.3.md`, `ai/decided/script-in-depth-readme-example_v3.3.md` (Script), `ai/decided/refactoring-readme-example_v3.3.md`, `ai/decided/refactoring-in-depth-readme-example_v3.3.md` (Refactoring)
 
 ---
 
@@ -150,9 +150,9 @@ manual_timestamp = datetime.now()  # Use save_with_timestamp()
 
 ### **AI Workflow Integration**
 - **Phase 1-2**: Reference `ai/decided/` documents for patterns
-- **Phase 3**: Use `ai/decided/utils-quick-reference_v3.1.md` patterns
+- **Phase 3**: Use `ai/decided/utils-quick-reference_v3.3.md` patterns
 - **Phase 4**: Run validation tools listed above
-- **Phase 6-7**: Follow `ai/decided/*example*.md` templates exactly
+- **Phase 6-7**: Follow `ai/decided/*example*_v3.3.md` templates exactly
 
 ---
 
@@ -184,11 +184,11 @@ PYTHONPATH=. python src/script.py demo test
 
 ### **When Working on TXO Framework**
 **Always update these in sequence (steps 5-8)**:
-1. `ai/decided/utils-quick-reference_v3.1.md` (if new functions)
-2. `ai/prompts/ai-prompt-template_v3.1.1.md` (if new patterns/reminders)
+1. `ai/decided/utils-quick-reference_v3.3.md` (if new functions)
+2. `ai/prompts/script-ai-prompt-template_v3.3.md` (if new patterns/reminders)
 3. `README.md` (15-minute success focus)
 4. `in-depth-readme.md` (maintainer deep-dive)
-5. `ai/reports/release-notes-v3.1.1.md` (track all changes)
+5. `ai/reports/release-notes-v3.2.md` (track all changes)
 
 ### **Version Management**
 - **Major changes**: Increment version across all documents
@@ -218,14 +218,14 @@ PYTHONPATH=. python src/script.py demo test
 ---
 
 **For comprehensive technical details, see:**
-- **All Functions**: `ai/decided/utils-quick-reference_v3.1.md`
-- **Business Rules**: `ai/decided/txo-business-adr_v3.1.md`
-- **Technical Standards**: `ai/decided/txo-technical-standards_v3.1.md`
+- **All Functions**: `ai/decided/utils-quick-reference_v3.3.md`
+- **Business Rules**: `ai/decided/txo-business-adr_v3.3.md`
+- **Technical Standards**: `ai/decided/txo-technical-standards_v3.3.md`
 - **Architecture Overview**: `module-dependency-diagram.md`
 
 ---
 
-**Version:** v3.1.1
-**Last Updated:** 2025-09-29
+**Version:** v3.3.0
+**Last Updated:** 2025-11-02
 **Domain:** AI Assistant Operations
 **Purpose:** Practical guidance for AI development work on TXO codebase

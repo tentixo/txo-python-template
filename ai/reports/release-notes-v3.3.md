@@ -9,7 +9,7 @@
 
 ## Overview
 
-Version 3.2 represents a major code quality improvement release focused on ADR compliance, testability, and maintainability. This release addresses all items from the refactor_v3.2.md plan, achieving 100% ADR compliance.
+Version 3.2 represents a major code quality improvement release focused on ADR compliance, testability, and maintainability. This release addresses all items from the refactor_v3.3.md plan, achieving 100% ADR compliance.
 
 **Headline Features**:
 - 🔒 Library code now fully testable (no sys.exit())
@@ -571,17 +571,17 @@ python -m src.try_me_script demo test
 ### New Documents (3)
 
 1. **ai/TODO.md** - Complete refactoring task tracking
-2. **ai/reports/adr-gap-analysis_v3.2.md** - ADR coverage analysis
-3. **ai/reports/adr-compliance-verification_v3.2.md** - Compliance verification
+2. **ai/reports/adr-gap-analysis_v3.3.md** - ADR coverage analysis
+3. **ai/reports/adr-compliance-verification_v3.3.md** - Compliance verification
 
 ### Updated Documents (2)
 
-4. **ai/decided/txo-technical-standards_v3.2.md**
+4. **ai/decided/txo-technical-standards_v3.3.md**
    - Added ADR-T011: Memory Optimization Strategy
    - Added ADR-T012: Library vs Application Code Boundaries
    - Enhanced ADR-T004 with third-party mutation anti-pattern
 
-5. **ai/decided/txo-business-adr_v3.2.md**
+5. **ai/decided/txo-business-adr_v3.3.md**
    - Enhanced ADR-B004 with validation timing strategy
 
 ---
@@ -699,8 +699,8 @@ All changes use existing dependencies:
 
 ## Credits
 
-**Refactoring Plan**: ai/reports/refactor_v3.2.md
-**ADR Framework**: ai/decided/txo-*-adr_v3.2.md
+**Refactoring Plan**: ai/reports/refactor_v3.3.md
+**ADR Framework**: ai/decided/txo-*-adr_v3.3.md
 **Development Process**: TXO 10-Step Development Lifecycle
 **Code Review**: Comprehensive utils/ directory analysis
 
